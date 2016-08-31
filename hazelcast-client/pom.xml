@@ -84,24 +84,24 @@
                             <goal>manifest</goal>
                         </goals>
                         <configuration>
+
                             <instructions>
+                                <Bundle-Activator>com.hazelcast.client.osgi.Activator</Bundle-Activator>
                                 <Export-Package>
                                     com.hazelcast.*
                                 </Export-Package>
                                 <Import-Package>
                                     !org.junit,
-                                    !com.hazelcast.*,
-                                    javax.cache;resolution:=optional,
-                                    javax.cache.*;resolution:=optional,
-                                    org.apache.log4j;resolution:=optional,
-                                    org.apache.log4j.*;resolution:=optional,
-                                    org.apache.logging.log4j;resolution:=optional,
-                                    org.apache.logging.log4j.*;resolution:=optional,
-                                    org.slf4j;resolution:=optional,
+                                    !com.eclipsesource.json,
+                                    !com.hazelcast.aws.*,
+                                    com.hazelcast.*,
+                                    com.hazelcast.client.impl.protocol.codec.*
+                                    sun.misc;resolution:=optional,
+                                    org.codehaus.groovy.jsr223;resolution:=optional,
+                                    org.jruby.embed.jsr223;resolution:=optional,
                                     *
                                 </Import-Package>
-                                <Fragment-Host>com.hazelcast</Fragment-Host>
-                                <!--<Embed-Dependency>*;scope=compile|runtime</Embed-Dependency>-->
+                                <Embed-Dependency>hazelcast-client-protocol</Embed-Dependency>
                             </instructions>
                         </configuration>
                     </execution>
@@ -150,6 +150,14 @@
         </dependency>
 
         <dependency>
+            <groupId>org.osgi</groupId>
+            <artifactId>org.osgi.core</artifactId>
+            <version>4.2.0</version>
+            <scope>provided</scope>
+            <optional>true</optional>
+        </dependency>
+
+        <dependency>
             <groupId>com.hazelcast</groupId>
             <artifactId>hazelcast</artifactId>
             <scope>test</scope>
@@ -161,7 +169,7 @@
             <groupId>com.hazelcast</groupId>
             <artifactId>hazelcast-client-protocol</artifactId>
             <version>${client.protocol.version}</version>
-            <scope>provided</scope>
+            <!--<scope>provided</scope>-->
         </dependency>
 
         <!-- dependencies for XATransaction tests -->
