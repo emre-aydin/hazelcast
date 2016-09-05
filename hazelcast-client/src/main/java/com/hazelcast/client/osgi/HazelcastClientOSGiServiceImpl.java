@@ -17,6 +17,7 @@
 package com.hazelcast.client.osgi;
 
 import com.hazelcast.client.HazelcastClient;
+import com.hazelcast.client.config.ClientConfig;
 import com.hazelcast.config.Config;
 import com.hazelcast.config.GroupConfig;
 import com.hazelcast.config.XmlConfigBuilder;
@@ -109,7 +110,7 @@ class HazelcastClientOSGiServiceImpl
     }
 
     private HazelcastInstance createHazelcastInstance(Config config) {
-        return HazelcastClient.newHazelcastClient();
+        return HazelcastClient.newHazelcastClient(new ClientConfig());
     }
 
     private HazelcastOSGiClientInstance registerInstance(HazelcastInstance instance) {
@@ -176,21 +177,21 @@ class HazelcastClientOSGiServiceImpl
             if (ownerBundle.getState() == Bundle.STARTING) {
                 try {
                     if (hazelcastInstance != null) {
-                        LOGGER.warning("Default Hazelcast instance should be null while activating service !");
+                        System.out.println("Default Hazelcast instance should be null while activating service !");
                         shutdownDefaultHazelcastInstanceIfActive();
                     }
                     if (Boolean.getBoolean(HAZELCAST_OSGI_START)) {
                         hazelcastInstance =
                                 new HazelcastOSGiClientInstanceImpl(createHazelcastInstance(null), this);
-                        LOGGER.info("Default Hazelcast instance has been created");
+                        System.out.println("Default Hazelcast instance has been created");
                     }
                     if (hazelcastInstance != null && !Boolean.getBoolean(HAZELCAST_OSGI_REGISTER_DISABLED)) {
                         registerInstance(hazelcastInstance);
-                        LOGGER.info("Default Hazelcast instance has been registered as OSGI service");
+                        System.out.println("Default Hazelcast instance has been registered as OSGI service");
                     }
                     serviceRegistration =
-                            ownerBundleContext.registerService(HazelcastOSGiService.class.getName(), this, null);
-                    LOGGER.info(this + " has been registered as OSGI service and activated now");
+                            ownerBundleContext.registerService(HazelcastClientOSGiService.class.getName(), this, null);
+                    System.out.println(this + " has been registered as OSGI service and activated now");
                 } catch (Throwable t) {
                     // If somehow default instance is activated, revert and deactivate it.
                     shutdownDefaultHazelcastInstanceIfActive();

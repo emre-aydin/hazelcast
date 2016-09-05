@@ -17,6 +17,7 @@
 package com.hazelcast.client.osgi;
 
 import com.hazelcast.client.HazelcastClient;
+import com.hazelcast.client.proxy.ClientMapProxy;
 import com.hazelcast.config.Config;
 import com.hazelcast.config.GroupConfig;
 import com.hazelcast.core.ClientService;
@@ -313,11 +314,11 @@ class HazelcastOSGiClientInstanceImpl
         final StringBuilder sb = new StringBuilder();
         sb.append("HazelcastOSGiInstanceImpl");
         sb.append("{delegatedInstance='").append(delegatedInstance).append('\'');
-        Config config = getConfig();
-        GroupConfig groupConfig = config.getGroupConfig();
-        if (groupConfig != null && !StringUtil.isNullOrEmpty(groupConfig.getName())) {
-            sb.append(", groupName=").append(groupConfig.getName());
-        }
+//        Config config = getConfig();
+//        GroupConfig groupConfig = config.getGroupConfig();
+//        if (groupConfig != null && !StringUtil.isNullOrEmpty(groupConfig.getName())) {
+//            sb.append(", groupName=").append(groupConfig.getName());
+//        }
         sb.append(", ownerServiceId=").append(ownerService.getId());
         sb.append('}');
         return sb.toString();

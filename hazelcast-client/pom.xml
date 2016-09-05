@@ -84,19 +84,25 @@
                             <goal>manifest</goal>
                         </goals>
                         <configuration>
-
                             <instructions>
                                 <Bundle-Activator>com.hazelcast.client.osgi.Activator</Bundle-Activator>
                                 <Export-Package>
-                                    com.hazelcast.*
+                                    com.hazelcast.client.*,
+                                    com.hazelcast.core.*
                                 </Export-Package>
                                 <Import-Package>
                                     !org.junit,
+                                    !com.hazelcast.client.*,
+                                    !com.hazelcast.*,
                                     !com.eclipsesource.json,
-                                    !com.hazelcast.aws.*,
-                                    com.hazelcast.*,
-                                    com.hazelcast.client.impl.protocol.codec.*
                                     sun.misc;resolution:=optional,
+                                    javax.cache;resolution:=optional,
+                                    javax.cache.*;resolution:=optional,
+                                    javax.security.auth.*,
+                                    org.apache.log4j;resolution:=optional,
+                                    org.apache.logging.log4j;resolution:=optional,
+                                    org.apache.logging.log4j.*;resolution:=optional,
+                                    org.slf4j;resolution:=optional,
                                     org.codehaus.groovy.jsr223;resolution:=optional,
                                     org.jruby.embed.jsr223;resolution:=optional,
                                     *
@@ -107,6 +113,7 @@
                     </execution>
                 </executions>
             </plugin>
+
 
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
@@ -131,6 +138,33 @@
                     </execution>
                 </executions>
             </plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-shade-plugin</artifactId>
+                <version>2.3</version>
+                <executions>
+                    <execution>
+                        <phase>package</phase>
+                        <goals>
+                            <goal>shade</goal>
+                        </goals>
+                        <configuration>
+                            <finalName>${project.build.finalName}</finalName>
+                            <createSourcesJar>true</createSourcesJar>
+                            <shadeSourcesContent>true</shadeSourcesContent>
+                            <createDependencyReducedPom>false</createDependencyReducedPom>
+                            <artifactSet>
+                                <includes>
+                                    <!--<include>com.eclipsesource.minimal-json:minimal-json</include>-->
+                                    <include>com.hazelcast:hazelcast-client-protocol</include>
+                                    <include>com.hazelcast:hazelcast</include>
+                                    <include>com.hazelcast:hazelcast-cloud</include>
+                                </includes>
+                            </artifactSet>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
         </plugins>
     </build>
 
@@ -141,20 +175,13 @@
             <version>${project.parent.version}</version>
         </dependency>
 
+
         <dependency>
             <groupId>com.hazelcast</groupId>
             <artifactId>hazelcast-cloud</artifactId>
             <version>3.6</version>
             <optional>true</optional>
             <scope>provided</scope>
-        </dependency>
-
-        <dependency>
-            <groupId>org.osgi</groupId>
-            <artifactId>org.osgi.core</artifactId>
-            <version>4.2.0</version>
-            <scope>provided</scope>
-            <optional>true</optional>
         </dependency>
 
         <dependency>
@@ -205,6 +232,13 @@
             <artifactId>cache-tests</artifactId>
             <version>1.0.0</version>
             <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.osgi</groupId>
+            <artifactId>org.osgi.core</artifactId>
+            <version>4.3.1</version>
+            <scope>provided</scope>
+            <optional>true</optional>
         </dependency>
     </dependencies>
 </project>
