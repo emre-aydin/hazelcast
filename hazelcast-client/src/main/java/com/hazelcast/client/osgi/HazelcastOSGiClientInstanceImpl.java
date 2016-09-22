@@ -16,10 +16,8 @@
 
 package com.hazelcast.client.osgi;
 
-import com.hazelcast.client.HazelcastClient;
-import com.hazelcast.client.proxy.ClientMapProxy;
+import com.hazelcast.cardinality.CardinalityEstimator;
 import com.hazelcast.config.Config;
-import com.hazelcast.config.GroupConfig;
 import com.hazelcast.core.ClientService;
 import com.hazelcast.core.Cluster;
 import com.hazelcast.core.DistributedObject;
@@ -47,7 +45,6 @@ import com.hazelcast.durableexecutor.DurableExecutorService;
 import com.hazelcast.logging.LoggingService;
 import com.hazelcast.mapreduce.JobTracker;
 import com.hazelcast.osgi.HazelcastOSGiInstance;
-import com.hazelcast.osgi.HazelcastOSGiService;
 import com.hazelcast.quorum.QuorumService;
 import com.hazelcast.ringbuffer.Ringbuffer;
 import com.hazelcast.transaction.HazelcastXAResource;
@@ -55,7 +52,6 @@ import com.hazelcast.transaction.TransactionContext;
 import com.hazelcast.transaction.TransactionException;
 import com.hazelcast.transaction.TransactionOptions;
 import com.hazelcast.transaction.TransactionalTask;
-import com.hazelcast.util.StringUtil;
 
 import java.util.Collection;
 import java.util.concurrent.ConcurrentMap;
@@ -139,6 +135,11 @@ class HazelcastOSGiClientInstanceImpl
     @Override
     public ICacheManager getCacheManager() {
         return delegatedInstance.getCacheManager();
+    }
+
+    @Override
+    public CardinalityEstimator getCardinalityEstimator(String name) {
+        return delegatedInstance.getCardinalityEstimator(name);
     }
 
     @Override
