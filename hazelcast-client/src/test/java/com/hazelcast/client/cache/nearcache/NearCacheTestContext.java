@@ -26,7 +26,7 @@ import com.hazelcast.nio.serialization.Data;
 import com.hazelcast.spi.serialization.SerializationService;
 
 /**
- * Context for client near cache tests.
+ * Context for client Near Cache tests.
  */
 public class NearCacheTestContext {
 
@@ -39,7 +39,6 @@ public class NearCacheTestContext {
     protected final ICache<Object, String> cache;
     protected final ICache<Object, String> memberCache;
     protected final NearCache<Data, String> nearCache;
-
 
     NearCacheTestContext(HazelcastClientProxy client, HazelcastClientCacheManager cacheManager,
                          NearCacheManager nearCacheManager, ICache<Object, String> cache,
@@ -70,5 +69,4 @@ public class NearCacheTestContext {
         this.memberCache = memberCache;
         this.nearCache = nearCache;
     }
-
 }

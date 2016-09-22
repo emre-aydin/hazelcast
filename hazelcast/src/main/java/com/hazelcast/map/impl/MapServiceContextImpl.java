@@ -18,6 +18,7 @@ package com.hazelcast.map.impl;
 
 import com.hazelcast.config.Config;
 import com.hazelcast.config.MapConfig;
+import com.hazelcast.config.PartitioningStrategyConfig;
 import com.hazelcast.core.PartitioningStrategy;
 import com.hazelcast.logging.ILogger;
 import com.hazelcast.map.MapInterceptor;
@@ -104,6 +105,7 @@ class MapServiceContextImpl implements MapServiceContext {
     protected final MapQueryEngine mapQueryEngine;
     protected final QueryOptimizer queryOptimizer;
     protected final ContextMutexFactory contextMutexFactory = new ContextMutexFactory();
+    protected final PartitioningStrategyFactory partitioningStrategyFactory;
     protected MapEventPublisher mapEventPublisher;
     protected MapService mapService;
     protected EventService eventService;
@@ -114,7 +116,7 @@ class MapServiceContextImpl implements MapServiceContext {
         this.partitionContainers = createPartitionContainers();
         this.mapContainers = new ConcurrentHashMap<String, MapContainer>();
         this.ownedPartitions = new AtomicReference<Collection<Integer>>();
-        this.expirationManager = new ExpirationManager(this);
+        this.expirationManager = new ExpirationManager(partitionContainers, nodeEngine);
         this.nearCacheProvider = createNearCacheProvider();
         this.localMapStatsProvider = createLocalMapStatsProvider();
         this.mergePolicyProvider = new MergePolicyProvider(nodeEngine);
@@ -123,6 +125,7 @@ class MapServiceContextImpl implements MapServiceContext {
         this.mapQueryEngine = createMapQueryEngine(queryOptimizer);
         this.eventService = nodeEngine.getEventService();
         this.operationProviders = createOperationProviders();
+        this.partitioningStrategyFactory = new PartitioningStrategyFactory(nodeEngine.getConfigClassLoader());
     }
 
     MapOperationProviders createOperationProviders() {
@@ -597,5 +600,20 @@ class MapServiceContextImpl implements MapServiceContext {
     @Override
     public boolean removeMapContainer(MapContainer mapContainer) {
         return mapContainers.remove(mapContainer.getName(), mapContainer);
+    }
+
+    @Override
+    public PartitioningStrategy getPartitioningStrategy(String mapName, PartitioningStrategyConfig config) {
+        return partitioningStrategyFactory.getPartitioningStrategy(mapName, config);
+    }
+
+    @Override
+    public void removePartitioningStrategyFromCache(String mapName) {
+        partitioningStrategyFactory.removePartitioningStrategyFromCache(mapName);
+    }
+
+    @Override
+    public PartitionContainer[] getPartitionContainers() {
+        return partitionContainers;
     }
 }

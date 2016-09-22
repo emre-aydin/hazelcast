@@ -21,6 +21,7 @@ import com.hazelcast.map.impl.EntryEventFilter;
 import com.hazelcast.map.impl.EventListenerFilter;
 import com.hazelcast.map.impl.MapPartitionLostEventFilter;
 import com.hazelcast.map.impl.MapServiceContext;
+import com.hazelcast.map.impl.nearcache.invalidation.UuidFilter;
 import com.hazelcast.map.impl.query.QueryEventFilter;
 import com.hazelcast.nio.Address;
 import com.hazelcast.nio.serialization.Data;
@@ -35,6 +36,7 @@ import java.util.Map;
 import static com.hazelcast.core.EntryEventType.ADDED;
 import static com.hazelcast.core.EntryEventType.EVICTED;
 import static com.hazelcast.core.EntryEventType.EXPIRED;
+import static com.hazelcast.core.EntryEventType.INVALIDATION;
 import static com.hazelcast.core.EntryEventType.REMOVED;
 import static com.hazelcast.core.EntryEventType.UPDATED;
 
@@ -96,17 +98,28 @@ public class QueryCacheNaturalFilteringStrategy extends AbstractFilteringStrateg
         // the effective event type may change after execution of QueryEventFilter.eval
         EventListenerFilter filterAsEventListenerFilter = null;
         boolean originalFilterEventTypeMatches = true;
+
         if (filter instanceof EventListenerFilter) {
+            int type = eventType.getType();
+            if (type == INVALIDATION.getType()) {
+                return FILTER_DOES_NOT_MATCH;
+            }
+
             // evaluate whether the filter matches the original event type
-            originalFilterEventTypeMatches = filter.eval(eventType.getType());
+            originalFilterEventTypeMatches = filter.eval(type);
             // hold a reference to the original event filter; this may be used later, in case there is a query event filter
             // and it alters the event type to be published
             filterAsEventListenerFilter = ((EventListenerFilter) filter);
             filter = ((EventListenerFilter) filter).getEventFilter();
+            if (filter instanceof UuidFilter) {
+                return FILTER_DOES_NOT_MATCH;
+            }
         }
+
         if (originalFilterEventTypeMatches && filter instanceof TrueEventFilter) {
             return eventType.getType();
         }
+
         if (filter instanceof QueryEventFilter) {
             int effectiveEventType = processQueryEventFilterWithAlternativeEventType(filter, eventType, dataKey, dataOldValue,
                     dataValue, mapNameOrNull);
@@ -122,10 +135,12 @@ public class QueryCacheNaturalFilteringStrategy extends AbstractFilteringStrateg
                 }
             }
         }
+
         if (filter instanceof EntryEventFilter) {
             return (originalFilterEventTypeMatches && processEntryEventFilter(filter, dataKey))
                     ? eventType.getType() : FILTER_DOES_NOT_MATCH;
         }
+
         throw new IllegalArgumentException("Unknown EventFilter type = [" + filter.getClass().getCanonicalName() + "]");
     }
 

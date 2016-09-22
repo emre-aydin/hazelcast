@@ -19,17 +19,25 @@ package com.hazelcast.map.impl.proxy;
 import com.hazelcast.cache.impl.nearcache.NearCache;
 import com.hazelcast.config.MapConfig;
 import com.hazelcast.core.ExecutionCallback;
-import com.hazelcast.core.ICompletableFuture;
 import com.hazelcast.map.EntryProcessor;
 import com.hazelcast.map.impl.MapEntries;
 import com.hazelcast.map.impl.MapService;
 import com.hazelcast.map.impl.nearcache.KeyStateMarker;
 import com.hazelcast.map.impl.nearcache.NearCacheProvider;
 import com.hazelcast.map.impl.nearcache.StaleReadPreventerNearCacheWrapper;
+import com.hazelcast.map.impl.nearcache.invalidation.BatchNearCacheInvalidation;
+import com.hazelcast.map.impl.nearcache.invalidation.Invalidation;
+import com.hazelcast.map.impl.nearcache.invalidation.InvalidationHandler;
+import com.hazelcast.map.impl.nearcache.invalidation.InvalidationListener;
+import com.hazelcast.map.impl.nearcache.invalidation.SingleNearCacheInvalidation;
+import com.hazelcast.map.impl.nearcache.invalidation.UuidFilter;
+import com.hazelcast.map.listener.MapListener;
 import com.hazelcast.nio.Address;
 import com.hazelcast.nio.serialization.Data;
 import com.hazelcast.query.Predicate;
+import com.hazelcast.spi.EventFilter;
 import com.hazelcast.spi.ExecutionService;
+import com.hazelcast.spi.InternalCompletableFuture;
 import com.hazelcast.spi.NodeEngine;
 import com.hazelcast.util.executor.CompletedFuture;
 
@@ -44,7 +52,7 @@ import static com.hazelcast.cache.impl.nearcache.NearCache.NULL_OBJECT;
 import static com.hazelcast.util.MapUtil.createHashMap;
 
 /**
- * A server-side {@code IMap} implementation which is fronted by a near-cache.
+ * A server-side {@code IMap} implementation which is fronted by a Near Cache.
  *
  * @param <K> the key type for this {@code IMap} proxy.
  * @param <V> the value type for this {@code IMap} proxy.
@@ -54,6 +62,8 @@ public class NearCachedMapProxyImpl<K, V> extends MapProxyImpl<K, V> {
     protected NearCache<Data, Object> nearCache;
     protected KeyStateMarker keyStateMarker;
     protected boolean cacheLocalEntries;
+    protected boolean invalidateOnChange;
+    protected volatile String invalidationListenerId;
 
     public NearCachedMapProxyImpl(String name, MapService mapService, NodeEngine nodeEngine, MapConfig mapConfig) {
         super(name, mapService, nodeEngine, mapConfig);
@@ -72,10 +82,16 @@ public class NearCachedMapProxyImpl<K, V> extends MapProxyImpl<K, V> {
         nearCache = nearCacheProvider.getOrCreateNearCache(name);
         keyStateMarker = getKeyStateMarker();
         cacheLocalEntries = getMapConfig().getNearCacheConfig().isCacheLocalEntries();
+
+        invalidateOnChange = nearCache.isInvalidatedOnChange();
+        if (invalidateOnChange) {
+            addNearCacheInvalidateListener();
+        }
+
     }
 
     // this operation returns the object in data format,
-    // except when it is retrieved from near-cache and near-cache memory format is object
+    // except when it is retrieved from Near Cache and Near Cache memory format is object
     @Override
     protected Object getInternal(Data key) {
         Object value = getCachedValue(key);
@@ -111,7 +127,7 @@ public class NearCachedMapProxyImpl<K, V> extends MapProxyImpl<K, V> {
     }
 
     @Override
-    protected ICompletableFuture<Data> getAsyncInternal(final Data key) {
+    protected InternalCompletableFuture<Data> getAsyncInternal(final Data key) {
         Object value = nearCache.get(key);
         if (value != null) {
             if (isCachedNull(value)) {
@@ -125,7 +141,7 @@ public class NearCachedMapProxyImpl<K, V> extends MapProxyImpl<K, V> {
 
         final boolean marked = keyStateMarker.tryMark(key);
 
-        ICompletableFuture<Data> future = super.getAsyncInternal(key);
+        InternalCompletableFuture<Data> future = super.getAsyncInternal(key);
         future.andThen(new ExecutionCallback<Data>() {
             @Override
             public void onResponse(Data response) {
@@ -173,15 +189,15 @@ public class NearCachedMapProxyImpl<K, V> extends MapProxyImpl<K, V> {
     }
 
     @Override
-    protected ICompletableFuture<Data> putAsyncInternal(Data key, Data value, long ttl, TimeUnit timeunit) {
-        ICompletableFuture<Data> future = super.putAsyncInternal(key, value, ttl, timeunit);
+    protected InternalCompletableFuture<Data> putAsyncInternal(Data key, Data value, long ttl, TimeUnit timeunit) {
+        InternalCompletableFuture<Data> future = super.putAsyncInternal(key, value, ttl, timeunit);
         invalidateCache(key);
         return future;
     }
 
     @Override
-    protected ICompletableFuture<Data> setAsyncInternal(Data key, Data value, long ttl, TimeUnit timeunit) {
-        ICompletableFuture<Data> future = super.setAsyncInternal(key, value, ttl, timeunit);
+    protected InternalCompletableFuture<Data> setAsyncInternal(Data key, Data value, long ttl, TimeUnit timeunit) {
+        InternalCompletableFuture<Data> future = super.setAsyncInternal(key, value, ttl, timeunit);
         invalidateCache(key);
         return future;
     }
@@ -267,7 +283,7 @@ public class NearCachedMapProxyImpl<K, V> extends MapProxyImpl<K, V> {
     }
 
     @Override
-    protected ICompletableFuture<Data> removeAsyncInternal(Data key) {
+    protected InternalCompletableFuture<Data> removeAsyncInternal(Data key) {
         invalidateCache(key);
         return super.removeAsyncInternal(key);
     }
@@ -333,8 +349,9 @@ public class NearCachedMapProxyImpl<K, V> extends MapProxyImpl<K, V> {
     }
 
     @Override
-    public ICompletableFuture executeOnKeyInternal(Data key, EntryProcessor entryProcessor, ExecutionCallback<Object> callback) {
-        ICompletableFuture future = super.executeOnKeyInternal(key, entryProcessor, callback);
+    public InternalCompletableFuture executeOnKeyInternal(
+            Data key, EntryProcessor entryProcessor, ExecutionCallback<Object> callback) {
+        InternalCompletableFuture future = super.executeOnKeyInternal(key, entryProcessor, callback);
         invalidateCache(key);
         return future;
     }
@@ -394,7 +411,8 @@ public class NearCachedMapProxyImpl<K, V> extends MapProxyImpl<K, V> {
 
     protected boolean isOwn(Data key) {
         int partitionId = partitionService.getPartitionId(key);
-        return partitionService.getPartitionOwner(partitionId).equals(thisAddress);
+        Address partitionOwner = partitionService.getPartitionOwner(partitionId);
+        return thisAddress.equals(partitionOwner);
     }
 
     public NearCache getNearCache() {
@@ -403,5 +421,45 @@ public class NearCachedMapProxyImpl<K, V> extends MapProxyImpl<K, V> {
 
     public KeyStateMarker getKeyStateMarker() {
         return ((StaleReadPreventerNearCacheWrapper) nearCache).getKeyStateMarker();
+    }
+
+    private void addNearCacheInvalidateListener() {
+        MapListener listener = new NearCacheInvalidationListener();
+        EventFilter eventFilter = new UuidFilter(getNodeEngine().getLocalMember().getUuid());
+
+        invalidationListenerId = mapServiceContext.addEventListener(listener, eventFilter, name);
+    }
+
+    private final class NearCacheInvalidationListener implements InvalidationListener, InvalidationHandler {
+
+        private NearCacheInvalidationListener() {
+        }
+
+        @Override
+        public void onInvalidate(Invalidation invalidation) {
+            assert invalidation != null;
+
+            invalidation.consumedBy(this);
+        }
+
+        @Override
+        public void handle(BatchNearCacheInvalidation batchNearCacheInvalidation) {
+            List<SingleNearCacheInvalidation> invalidations = batchNearCacheInvalidation.getInvalidations();
+
+            for (SingleNearCacheInvalidation invalidation : invalidations) {
+                handle(invalidation);
+            }
+        }
+
+        @Override
+        public void handle(SingleNearCacheInvalidation singleNearCacheInvalidation) {
+            Data key = singleNearCacheInvalidation.getKey();
+
+            if (key == null) {
+                nearCache.clear();
+            } else {
+                nearCache.remove(key);
+            }
+        }
     }
 }

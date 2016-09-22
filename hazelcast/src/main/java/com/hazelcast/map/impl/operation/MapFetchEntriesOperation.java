@@ -16,10 +16,12 @@
 
 package com.hazelcast.map.impl.operation;
 
+import com.hazelcast.map.impl.MapDataSerializerHook;
 import com.hazelcast.map.impl.iterator.MapEntriesWithCursor;
 import com.hazelcast.nio.ObjectDataInput;
 import com.hazelcast.nio.ObjectDataOutput;
 import com.hazelcast.spi.ReadonlyOperation;
+
 import java.io.IOException;
 
 public class MapFetchEntriesOperation extends MapOperation implements ReadonlyOperation {
@@ -59,5 +61,10 @@ public class MapFetchEntriesOperation extends MapOperation implements ReadonlyOp
         super.writeInternal(out);
         out.writeInt(fetchSize);
         out.writeInt(lastTableIndex);
+    }
+
+    @Override
+    public int getId() {
+        return MapDataSerializerHook.FETCH_ENTRIES;
     }
 }

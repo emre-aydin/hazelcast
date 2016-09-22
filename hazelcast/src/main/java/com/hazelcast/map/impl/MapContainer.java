@@ -28,6 +28,7 @@ import com.hazelcast.map.impl.eviction.Evictor;
 import com.hazelcast.map.impl.eviction.EvictorImpl;
 import com.hazelcast.map.impl.mapstore.MapStoreContext;
 import com.hazelcast.map.impl.nearcache.NearCacheRecord;
+import com.hazelcast.map.impl.nearcache.invalidation.InvalidationListener;
 import com.hazelcast.map.impl.query.QueryEntryFactory;
 import com.hazelcast.map.impl.record.DataRecordFactory;
 import com.hazelcast.map.impl.record.ObjectRecordFactory;
@@ -79,9 +80,8 @@ public class MapContainer {
         }
     };
     protected final ConstructorFunction<Void, RecordFactory> recordFactoryConstructor;
-    protected final boolean memberNearCacheInvalidationEnabled;
     /**
-     * Holds number of registered {@link com.hazelcast.map.impl.nearcache.InvalidationListener} from clients.
+     * Holds number of registered {@link InvalidationListener} from clients.
      */
     protected final AtomicInteger invalidationListenerCount = new AtomicInteger();
 
@@ -111,7 +111,6 @@ public class MapContainer {
         this.nearCacheSizeEstimator = createNearCacheSizeEstimator(mapConfig.getNearCacheConfig());
         this.extractors = new Extractors(mapConfig.getMapAttributeConfigs(), config.getClassLoader());
         this.indexes = new Indexes((InternalSerializationService) serializationService, extractors);
-        this.memberNearCacheInvalidationEnabled = hasMemberNearCache() && mapConfig.getNearCacheConfig().isInvalidateOnChange();
         this.mapStoreContext = createMapStoreContext(this);
         this.mapStoreContext.start();
         initEvictor();
@@ -178,8 +177,7 @@ public class MapContainer {
     }
 
     private PartitioningStrategy createPartitioningStrategy() {
-        return PartitioningStrategyFactory.getPartitioningStrategy(mapServiceContext.getNodeEngine(),
-                mapConfig.getName(), mapConfig.getPartitioningStrategyConfig());
+        return mapServiceContext.getPartitioningStrategy(mapConfig.getName(), mapConfig.getPartitioningStrategyConfig());
     }
 
     public Indexes getIndexes() {
@@ -205,10 +203,6 @@ public class MapContainer {
         if (isWanReplicationEnabled()) {
             wanReplicationPublisher.checkWanReplicationQueues();
         }
-    }
-
-    public boolean hasMemberNearCache() {
-        return mapConfig.isNearCacheEnabled();
     }
 
     public int getTotalBackupCount() {
@@ -280,10 +274,6 @@ public class MapContainer {
         return extractors;
     }
 
-    public boolean isMemberNearCacheInvalidationEnabled() {
-        return memberNearCacheInvalidationEnabled;
-    }
-
     public boolean hasInvalidationListener() {
         return invalidationListenerCount.get() > 0;
     }
@@ -294,10 +284,6 @@ public class MapContainer {
 
     public void decreaseInvalidationListenerCount() {
         invalidationListenerCount.decrementAndGet();
-    }
-
-    public boolean isInvalidationEnabled() {
-        return isMemberNearCacheInvalidationEnabled() || hasInvalidationListener();
     }
 
     public InterceptorRegistry getInterceptorRegistry() {

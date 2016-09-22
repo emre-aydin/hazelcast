@@ -16,6 +16,8 @@
 
 package com.hazelcast.spi.impl.operationexecutor;
 
+import com.hazelcast.internal.util.counters.Counter;
+
 /**
  * A Factory for creating {@link OperationRunner} instances.
  */
@@ -28,7 +30,7 @@ public interface OperationRunnerFactory {
      * @param partitionId the id of the partition.
      * @return the created OperationRunner.
      */
-    OperationRunner createPartitionRunner(int partitionId);
+    OperationRunner createPartitionRunner(int partitionId, Counter failedBackupsCounter);
 
     /**
      * Creates an OperationRunner to execute generic Operations.
@@ -49,7 +51,7 @@ public interface OperationRunnerFactory {
      * into problems.
      *
      * @return the created ad hoc OperationRunner.
-     * @see com.hazelcast.spi.OperationService#runOperationOnCallingThread(com.hazelcast.spi.Operation)
+     * @see com.hazelcast.spi.OperationService#run(com.hazelcast.spi.Operation)
      */
     OperationRunner createAdHocRunner();
 }

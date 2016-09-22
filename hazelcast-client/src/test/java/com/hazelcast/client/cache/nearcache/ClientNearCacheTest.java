@@ -17,125 +17,116 @@
 package com.hazelcast.client.cache.nearcache;
 
 import com.hazelcast.config.InMemoryFormat;
-import com.hazelcast.test.HazelcastParallelClassRunner;
+import com.hazelcast.test.HazelcastParametersRunnerFactory;
 import com.hazelcast.test.annotation.QuickTest;
 import org.junit.Test;
 import org.junit.experimental.categories.Category;
 import org.junit.runner.RunWith;
+import org.junit.runners.Parameterized;
+import org.junit.runners.Parameterized.Parameter;
+import org.junit.runners.Parameterized.Parameters;
 
-import java.util.concurrent.ExecutionException;
+import java.util.Arrays;
+import java.util.Collection;
 
-@RunWith(HazelcastParallelClassRunner.class)
+@RunWith(Parameterized.class)
+@Parameterized.UseParametersRunnerFactory(HazelcastParametersRunnerFactory.class)
 @Category(QuickTest.class)
 public class ClientNearCacheTest extends ClientNearCacheTestSupport {
 
-    @Test
-    public void putAndGetFromCacheAndThenGetFromClientNearCacheWithBinaryInMemoryFormat() {
-        putAndGetFromCacheAndThenGetFromClientNearCache(InMemoryFormat.BINARY);
+    @Parameter
+    public InMemoryFormat inMemoryFormat;
+
+    @Parameters(name = "format:{0}")
+    public static Collection<Object[]> parameters() {
+        return Arrays.asList(new Object[][]{
+                {InMemoryFormat.BINARY},
+                {InMemoryFormat.OBJECT},
+        });
     }
 
     @Test
-    public void putAndGetFromCacheAndThenGetFromClientNearCacheWithObjectInMemoryFormat() {
-        putAndGetFromCacheAndThenGetFromClientNearCache(InMemoryFormat.OBJECT);
+    public void whenEmptyMapThenPopulatedNearCacheShouldReturnNull_neverNULL_OBJECT() {
+        whenEmptyMapThenPopulatedNearCacheShouldReturnNullNeverNULL_OBJECT(inMemoryFormat);
     }
 
     @Test
-    public void putToCacheAndThenGetFromClientNearCacheWithBinaryInMemoryFormat() {
-        putToCacheAndThenGetFromClientNearCache(InMemoryFormat.BINARY);
+    public void putAndGetFromCacheAndThenGetFromClientNearCache() {
+        putAndGetFromCacheAndThenGetFromClientNearCache(inMemoryFormat);
     }
 
     @Test
-    public void putToCacheAndThenGetFromClientNearCacheWithObjectInMemoryFormat() {
-        putToCacheAndThenGetFromClientNearCache(InMemoryFormat.OBJECT);
+    public void putToCacheAndThenGetFromClientNearCache() {
+        putToCacheAndThenGetFromClientNearCache(inMemoryFormat);
     }
 
     @Test
-    public void putIfAbsentToCacheAndThenGetFromClientNearCacheWithBinaryInMemoryFormat() {
-        putIfAbsentToCacheAndThenGetFromClientNearCache(InMemoryFormat.BINARY);
+    public void putIfAbsentToCacheAndThenGetFromClientNearCache() {
+        putIfAbsentToCacheAndThenGetFromClientNearCache(inMemoryFormat);
     }
 
     @Test
-    public void putIfAbsentToCacheAndThenGetFromClientNearCacheWithObjectInMemoryFormat() {
-        putIfAbsentToCacheAndThenGetFromClientNearCache(InMemoryFormat.OBJECT);
+    public void putToCacheAndUpdateFromOtherNodeThenGetUpdatedFromClientNearCache() {
+        putToCacheAndUpdateFromOtherNodeThenGetUpdatedFromClientNearCache(inMemoryFormat);
     }
 
     @Test
-    public void putToCacheAndUpdateFromOtherNodeThenGetUpdatedFromClientNearCacheWithBinaryInMemoryFormat() {
-        putToCacheAndUpdateFromOtherNodeThenGetUpdatedFromClientNearCache(InMemoryFormat.BINARY);
+    public void putToCacheAndGetInvalidationEventWhenNodeShutdown() {
+        putToCacheAndGetInvalidationEventWhenNodeShutdown(inMemoryFormat);
     }
 
     @Test
-    public void putToCacheAndUpdateFromOtherNodeThenGetUpdatedFromClientNearCacheWithObjectInMemoryFormat() {
-        putToCacheAndUpdateFromOtherNodeThenGetUpdatedFromClientNearCache(InMemoryFormat.OBJECT);
+    public void putToCacheAndRemoveFromOtherNodeThenCantGetUpdatedFromClientNearCache() {
+        putToCacheAndRemoveFromOtherNodeThenCantGetUpdatedFromClientNearCache(inMemoryFormat);
     }
 
     @Test
-    public void putToCacheAndGetInvalidationEventWhenNodeShutdownWithBinaryInMemoryFormat() {
-        putToCacheAndGetInvalidationEventWhenNodeShutdown(InMemoryFormat.BINARY);
+    public void testLoadAllNearCacheInvalidationBinary() throws Exception {
+        testLoadAllNearCacheInvalidation(inMemoryFormat);
     }
 
     @Test
-    public void putToCacheAndGetInvalidationEventWhenNodeShutdownWithObjectInMemoryFormat() {
-        putToCacheAndGetInvalidationEventWhenNodeShutdown(InMemoryFormat.OBJECT);
-    }
-
-    @Test
-    public void putToCacheAndRemoveFromOtherNodeThenCantGetUpdatedFromClientNearCacheWithBinaryInMemoryFormat() {
-        putToCacheAndRemoveFromOtherNodeThenCantGetUpdatedFromClientNearCache(InMemoryFormat.BINARY);
-    }
-
-    @Test
-    public void putToCacheAndRemoveFromOtherNodeThenCantGetUpdatedFromClientNearCacheWithObjectInMemoryFormat() {
-        putToCacheAndRemoveFromOtherNodeThenCantGetUpdatedFromClientNearCache(InMemoryFormat.OBJECT);
-    }
-
-    @Test
-    public void testLoadAllNearCacheInvalidationBinary()
-            throws InterruptedException {
-        testLoadAllNearCacheInvalidation(InMemoryFormat.BINARY);
-    }
-
-    @Test
-    public void testLoadAllNearCacheInvalidationObject()
-            throws InterruptedException {
-        testLoadAllNearCacheInvalidation(InMemoryFormat.OBJECT);
-    }
-
-    @Test
-    public void putToCacheAndClearOrDestroyThenCantGetAnyRecordFromClientNearCacheWithBinaryInMemoryFormat() {
-        putToCacheAndClearOrDestroyThenCantGetAnyRecordFromClientNearCache(InMemoryFormat.BINARY);
-    }
-
-    @Test
-    public void putToCacheAndClearOrDestroyThenCantGetAnyRecordFromClientNearCacheWithObjectInMemoryFormat() {
-        putToCacheAndClearOrDestroyThenCantGetAnyRecordFromClientNearCache(InMemoryFormat.OBJECT);
+    public void putToCacheAndClearOrDestroyThenCantGetAnyRecordFromClientNearCache() {
+        putToCacheAndClearOrDestroyThenCantGetAnyRecordFromClientNearCache(inMemoryFormat);
     }
 
     @Test
     public void testGetAllReturnsFromNearCache() {
-        doTestGetAllReturnsFromNearCache();
+        doTestGetAllReturnsFromNearCache(inMemoryFormat);
     }
 
     @Test
-    public void putToCacheAndDontInvalidateFromClientNearCacheWhenPerEntryInvalidationIsDisabledWithBinaryInMemoryFormat() {
-        putToCacheAndDontInvalidateFromClientNearCacheWhenPerEntryInvalidationIsDisabled(InMemoryFormat.BINARY);
+    public void putToCacheAndDontInvalidateFromClientNearCacheWhenPerEntryInvalidationIsDisabled() {
+        putToCacheAndDontInvalidateFromClientNearCacheWhenPerEntryInvalidationIsDisabled(inMemoryFormat);
     }
 
     @Test
-    public void putToCacheAndDontInvalidateFromClientNearCacheWhenPerEntryInvalidationIsDisabledWithObjectInMemoryFormat() {
-        putToCacheAndDontInvalidateFromClientNearCacheWhenPerEntryInvalidationIsDisabled(InMemoryFormat.OBJECT);
+    public void putAsyncToCacheAndThenGetFromClientNearCacheImmediately() throws Exception {
+        putAsyncToCacheAndThenGetFromClientNearCacheImmediately(inMemoryFormat);
     }
 
     @Test
-    public void putAsyncToCacheAndThenGetFromClientNearCacheImmediatelyWithBinaryInMemoryFormat()
-            throws ExecutionException, InterruptedException {
-        putAsyncToCacheAndThenGetFromClientNearCacheImmediately(InMemoryFormat.BINARY);
+    public void testNearCacheEviction_() {
+        testNearCacheEviction(inMemoryFormat);
     }
 
     @Test
-    public void putAsyncToCacheAndThenGetFromClientNearCacheImmediatelyWithObjectInMemoryFormat()
-            throws ExecutionException, InterruptedException {
-        putAsyncToCacheAndThenGetFromClientNearCacheImmediately(InMemoryFormat.OBJECT);
+    public void testNearCacheTTLRecordsExpired_() {
+        testNearCacheExpiration_withTTL(inMemoryFormat);
     }
 
+    @Test
+    public void testNearCacheIdleRecordsExpired_() {
+        testNearCacheExpiration_withMaxIdle(inMemoryFormat);
+    }
+
+    @Test
+    public void testNearCacheMemoryCostCalculation() {
+        testNearCacheMemoryCostCalculation(inMemoryFormat, 1);
+    }
+
+    @Test
+    public void testNearCacheMemoryCostCalculation_withConcurrentCacheMisses() {
+        testNearCacheMemoryCostCalculation(inMemoryFormat, 10);
+    }
 }

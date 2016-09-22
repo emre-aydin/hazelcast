@@ -22,7 +22,6 @@ import com.hazelcast.concurrent.lock.operations.UnlockOperation;
 import com.hazelcast.core.DistributedObject;
 import com.hazelcast.instance.MemberImpl;
 import com.hazelcast.nio.serialization.Data;
-import com.hazelcast.spi.partition.MigrationEndpoint;
 import com.hazelcast.spi.ClientAwareService;
 import com.hazelcast.spi.ManagedService;
 import com.hazelcast.spi.MemberAttributeServiceEvent;
@@ -38,6 +37,7 @@ import com.hazelcast.spi.PartitionReplicationEvent;
 import com.hazelcast.spi.RemoteService;
 import com.hazelcast.spi.impl.PartitionSpecificRunnable;
 import com.hazelcast.spi.impl.operationservice.InternalOperationService;
+import com.hazelcast.spi.partition.MigrationEndpoint;
 import com.hazelcast.spi.properties.GroupProperty;
 import com.hazelcast.spi.properties.HazelcastProperties;
 import com.hazelcast.util.Clock;
@@ -198,7 +198,7 @@ public final class LockServiceImpl implements LockService, ManagedService, Remot
             Data key = lock.getKey();
             if (uuid.equals(lock.getOwner()) && !lock.isTransactional()) {
                 UnlockOperation op = createLockCleanupOperation(partitionId, lockStore.getNamespace(), key, uuid);
-                operationService.runOperationOnCallingThread(op);
+                operationService.run(op);
             }
             lockStore.cleanWaitersAndSignalsFor(key, uuid);
         }

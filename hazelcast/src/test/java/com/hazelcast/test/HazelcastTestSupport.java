@@ -35,9 +35,9 @@ import com.hazelcast.nio.ConnectionManager;
 import com.hazelcast.nio.Packet;
 import com.hazelcast.spi.Operation;
 import com.hazelcast.spi.impl.NodeEngineImpl;
+import com.hazelcast.spi.impl.operationparker.impl.OperationParkerImpl;
 import com.hazelcast.spi.impl.operationservice.InternalOperationService;
 import com.hazelcast.spi.impl.operationservice.impl.OperationServiceImpl;
-import com.hazelcast.spi.impl.waitnotifyservice.impl.WaitNotifyServiceImpl;
 import com.hazelcast.spi.partition.IPartition;
 import com.hazelcast.util.EmptyStatement;
 import com.hazelcast.util.ExceptionUtil;
@@ -602,6 +602,18 @@ public abstract class HazelcastTestSupport {
         return true;
     }
 
+    public static void assertAllInSafeState(Collection<HazelcastInstance> nodes) {
+        Map<Address, PartitionServiceState> nonSafeStates = new HashMap<Address, PartitionServiceState>();
+        for (HazelcastInstance node : nodes) {
+            final PartitionServiceState state = getPartitionServiceState(node);
+            if (state != PartitionServiceState.SAFE) {
+                nonSafeStates.put(getAddress(node), state);
+            }
+        }
+
+        assertTrue("Instances not in safe state! " + nonSafeStates, nonSafeStates.isEmpty());
+    }
+
     public static void waitAllForSafeState() {
         waitAllForSafeState(HazelcastInstanceFactory.getAllHazelcastInstances());
     }
@@ -613,15 +625,7 @@ public abstract class HazelcastTestSupport {
     public static void waitAllForSafeState(final Collection<HazelcastInstance> instances, int timeoutInSeconds) {
         assertTrueEventually(new AssertTask() {
             public void run() {
-                Map<Address, PartitionServiceState> states = new HashMap<Address, PartitionServiceState>();
-                for (HazelcastInstance instance : instances) {
-                    PartitionServiceState state = getPartitionServiceState(instance);
-                    if (state != PartitionServiceState.SAFE) {
-                        states.put(getNode(instance).getThisAddress(), state);
-                    }
-                }
-
-                assertTrue("Instances not in safe state! " + states, states.isEmpty());
+               assertAllInSafeState(instances);
             }
         }, timeoutInSeconds);
     }
@@ -988,17 +992,17 @@ public abstract class HazelcastTestSupport {
     }
 
     public static void assertWaitingOperationCountEventually(final int opsCount, HazelcastInstance instance) {
-        final WaitNotifyServiceImpl waitNotifyService = getWaitNotifyService(instance);
+        final OperationParkerImpl waitNotifyService = getOperationParkingService(instance);
         assertTrueEventually(new AssertTask() {
             @Override
             public void run() throws Exception {
-                assertEquals(opsCount, waitNotifyService.getTotalWaitingOperationCount());
+                assertEquals(opsCount, waitNotifyService.getTotalParkedOperationCount());
             }
         });
     }
 
-    private static WaitNotifyServiceImpl getWaitNotifyService(HazelcastInstance instance) {
+    private static OperationParkerImpl getOperationParkingService(HazelcastInstance instance) {
         Node node = getNode(instance);
-        return (WaitNotifyServiceImpl) node.getNodeEngine().getWaitNotifyService();
+        return (OperationParkerImpl) node.getNodeEngine().getOperationParker();
     }
 }

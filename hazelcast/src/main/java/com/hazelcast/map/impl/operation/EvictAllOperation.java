@@ -17,6 +17,7 @@
 package com.hazelcast.map.impl.operation;
 
 import com.hazelcast.core.EntryEventType;
+import com.hazelcast.map.impl.MapDataSerializerHook;
 import com.hazelcast.nio.ObjectDataInput;
 import com.hazelcast.nio.ObjectDataOutput;
 import com.hazelcast.spi.BackupAwareOperation;
@@ -29,8 +30,7 @@ import java.io.IOException;
 /**
  * Operation which evicts all keys except locked ones.
  */
-public class EvictAllOperation extends MapOperation implements BackupAwareOperation,
-        MutatingOperation, PartitionAwareOperation {
+public class EvictAllOperation extends MapOperation implements BackupAwareOperation, MutatingOperation, PartitionAwareOperation {
 
     private boolean shouldRunOnBackup;
     private int numberOfEvictedEntries;
@@ -46,10 +46,6 @@ public class EvictAllOperation extends MapOperation implements BackupAwareOperat
 
     @Override
     public void run() throws Exception {
-
-        // TODO this also clears locked keys from near cache which should be preserved.
-        clearLocalNearCache();
-
         if (recordStore == null) {
             return;
         }
@@ -111,5 +107,10 @@ public class EvictAllOperation extends MapOperation implements BackupAwareOperat
 
         sb.append(", shouldRunOnBackup=").append(shouldRunOnBackup);
         sb.append(", numberOfEvictedEntries=").append(numberOfEvictedEntries);
+    }
+
+    @Override
+    public int getId() {
+        return MapDataSerializerHook.EVICT_ALL;
     }
 }

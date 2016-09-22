@@ -17,6 +17,7 @@
 package com.hazelcast.map.impl.operation;
 
 import com.hazelcast.map.impl.MapContainer;
+import com.hazelcast.map.impl.MapDataSerializerHook;
 import com.hazelcast.map.impl.MapService;
 import com.hazelcast.map.impl.MapServiceContext;
 import com.hazelcast.map.impl.PartitionContainer;
@@ -25,13 +26,14 @@ import com.hazelcast.map.impl.mapstore.MapDataStore;
 import com.hazelcast.map.impl.nearcache.NearCacheProvider;
 import com.hazelcast.map.impl.recordstore.RecordStore;
 import com.hazelcast.nio.serialization.Data;
+import com.hazelcast.nio.serialization.IdentifiedDataSerializable;
 import com.hazelcast.spi.impl.AbstractNamedOperation;
 
 import java.util.List;
 
 import static com.hazelcast.util.CollectionUtil.isEmpty;
 
-public abstract class MapOperation extends AbstractNamedOperation {
+public abstract class MapOperation extends AbstractNamedOperation implements IdentifiedDataSerializable {
 
     protected transient MapService mapService;
     protected transient MapContainer mapContainer;
@@ -97,27 +99,21 @@ public abstract class MapOperation extends AbstractNamedOperation {
     }
 
     protected final void invalidateNearCache(List<Data> keys) {
-        if (!mapContainer.isInvalidationEnabled() || isEmpty(keys)) {
+        if (!mapContainer.hasInvalidationListener() || isEmpty(keys)) {
             return;
         }
         NearCacheProvider nearCacheProvider = mapServiceContext.getNearCacheProvider();
-        nearCacheProvider.getNearCacheInvalidator().invalidate(name, keys, getCallerUuid());
+        for (Data key : keys) {
+            nearCacheProvider.getNearCacheInvalidator().invalidate(key, name, getCallerUuid());
+        }
     }
 
     protected final void invalidateNearCache(Data key) {
-        if (!mapContainer.isInvalidationEnabled() || key == null) {
+        if (!mapContainer.hasInvalidationListener() || key == null) {
             return;
         }
         NearCacheProvider nearCacheProvider = mapServiceContext.getNearCacheProvider();
-        nearCacheProvider.getNearCacheInvalidator().invalidate(name, key, getCallerUuid());
-    }
-
-    protected final void clearLocalNearCache() {
-        if (!mapContainer.isInvalidationEnabled()) {
-            return;
-        }
-        NearCacheProvider nearCacheProvider = mapServiceContext.getNearCacheProvider();
-        nearCacheProvider.getNearCacheInvalidator().clearLocalNearCache(name);
+        nearCacheProvider.getNearCacheInvalidator().invalidate(key, name, getCallerUuid());
     }
 
     protected void evict(Data excludedKey) {
@@ -138,4 +134,10 @@ public abstract class MapOperation extends AbstractNamedOperation {
             return partitionContainer.getExistingRecordStore(name);
         }
     }
+
+    @Override
+    public int getFactoryId() {
+        return MapDataSerializerHook.F_ID;
+    }
+
 }

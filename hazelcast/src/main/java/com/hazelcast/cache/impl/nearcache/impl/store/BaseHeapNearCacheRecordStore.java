@@ -52,7 +52,7 @@ public abstract class BaseHeapNearCacheRecordStore<K, V, R extends NearCacheReco
     @Override
     protected HeapNearCacheRecordMap<K, R> createNearCacheRecordMap(NearCacheConfig nearCacheConfig,
                                                                     NearCacheContext nearCacheContext) {
-        return new HeapNearCacheRecordMap(nearCacheContext.getSerializationService(), DEFAULT_INITIAL_CAPACITY);
+        return new HeapNearCacheRecordMap<K, R>(nearCacheContext.getSerializationService(), DEFAULT_INITIAL_CAPACITY);
     }
 
     @Override
@@ -69,7 +69,7 @@ public abstract class BaseHeapNearCacheRecordStore<K, V, R extends NearCacheReco
 
     @Override
     protected R removeRecord(K key) {
-        R removedRecord =  records.remove(key);
+        R removedRecord = records.remove(key);
         if (removedRecord != null) {
             nearCacheStats.decrementOwnedEntryMemoryCost(getTotalStorageMemoryCost(key, removedRecord));
         }
@@ -77,8 +77,8 @@ public abstract class BaseHeapNearCacheRecordStore<K, V, R extends NearCacheReco
     }
 
     @Override
-    public void onEvict(K key, R record) {
-        super.onEvict(key, record);
+    public void onEvict(K key, R record, boolean wasExpired) {
+        super.onEvict(key, record, wasExpired);
         nearCacheStats.decrementOwnedEntryMemoryCost(getTotalStorageMemoryCost(key, record));
     }
 
@@ -89,8 +89,8 @@ public abstract class BaseHeapNearCacheRecordStore<K, V, R extends NearCacheReco
             R value = entry.getValue();
             if (isRecordExpired(value)) {
                 remove(key);
+                onExpire(key, value);
             }
         }
     }
-
 }

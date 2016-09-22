@@ -21,13 +21,13 @@ import com.hazelcast.logging.ILogger;
 import com.hazelcast.monitor.LocalExecutorStats;
 import com.hazelcast.monitor.impl.LocalExecutorStatsImpl;
 import com.hazelcast.spi.ExecutionService;
+import com.hazelcast.spi.LiveOperations;
+import com.hazelcast.spi.LiveOperationsTracker;
 import com.hazelcast.spi.ManagedService;
 import com.hazelcast.spi.NodeEngine;
 import com.hazelcast.spi.Operation;
-import com.hazelcast.spi.LiveOperationsTracker;
 import com.hazelcast.spi.RemoteService;
 import com.hazelcast.spi.StatisticsAwareService;
-import com.hazelcast.spi.LiveOperations;
 import com.hazelcast.util.Clock;
 import com.hazelcast.util.ConcurrencyUtil;
 import com.hazelcast.util.ConstructorFunction;
@@ -176,10 +176,10 @@ public class DistributedExecutorService implements ManagedService, RemoteService
     }
 
     @Override
-    public void populate(LiveOperations result) {
+    public void populate(LiveOperations liveOperations) {
         for (CallableProcessor processor : submittedTasks.values()) {
             Operation op = processor.op;
-            result.add(op.getCallerAddress(), op.getCallId());
+            liveOperations.add(op.getCallerAddress(), op.getCallId());
         }
     }
 

@@ -50,12 +50,14 @@ import com.hazelcast.query.PagingPredicate;
 import com.hazelcast.query.Predicate;
 import com.hazelcast.query.TruePredicate;
 import com.hazelcast.spi.InitializingObject;
+import com.hazelcast.spi.InternalCompletableFuture;
 import com.hazelcast.spi.NodeEngine;
 import com.hazelcast.spi.Operation;
 import com.hazelcast.util.CollectionUtil;
 import com.hazelcast.util.IterationType;
 import com.hazelcast.util.MapUtil;
 import com.hazelcast.util.executor.DelegatingFuture;
+
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashSet;
@@ -714,7 +716,7 @@ public class MapProxyImpl<K, V> extends MapProxySupport implements IMap<K, V>, I
 
         MapService service = getService();
         Data keyData = toData(key, partitionStrategy);
-        ICompletableFuture f = executeOnKeyInternal(keyData, entryProcessor, null);
+        InternalCompletableFuture f = executeOnKeyInternal(keyData, entryProcessor, null);
         return new DelegatingFuture(f, service.getMapServiceContext().getNodeEngine().getSerializationService());
     }
 

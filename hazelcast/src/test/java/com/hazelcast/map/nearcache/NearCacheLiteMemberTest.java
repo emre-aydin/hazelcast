@@ -2,12 +2,14 @@ package com.hazelcast.map.nearcache;
 
 import com.hazelcast.cache.impl.nearcache.NearCache;
 import com.hazelcast.config.Config;
+import com.hazelcast.config.MapStoreConfig;
 import com.hazelcast.config.NearCacheConfig;
 import com.hazelcast.core.HazelcastInstance;
 import com.hazelcast.core.IMap;
 import com.hazelcast.map.EntryBackupProcessor;
 import com.hazelcast.map.EntryProcessor;
 import com.hazelcast.map.impl.MapService;
+import com.hazelcast.map.impl.proxy.NearCachedMapProxyImpl;
 import com.hazelcast.nio.serialization.Data;
 import com.hazelcast.test.AssertTask;
 import com.hazelcast.test.HazelcastParallelClassRunner;
@@ -38,18 +40,19 @@ import static org.junit.Assert.assertTrue;
 @Category({QuickTest.class, ParallelTest.class})
 public class NearCacheLiteMemberTest {
 
-    private TestHazelcastInstanceFactory factory;
-
     private String mapName;
 
-    private HazelcastInstance instance;
+    private TestHazelcastInstanceFactory factory;
 
+    private HazelcastInstance instance;
     private HazelcastInstance lite;
 
     @Before
     public void init() {
-        factory = new TestHazelcastInstanceFactory(2);
         mapName = randomMapName();
+
+        factory = new TestHazelcastInstanceFactory(2);
+
         instance = factory.newHazelcastInstance(createConfig(mapName, false));
         lite = factory.newHazelcastInstance(createConfig(mapName, true));
     }
@@ -132,6 +135,20 @@ public class NearCacheLiteMemberTest {
     @Test
     public void testExecuteOnKeys() {
         testExecuteOnKeys(instance, lite, mapName);
+    }
+
+    @Test
+    public void testLoadAll() {
+        initWithMapStore();
+
+        testLoadAll(instance, lite, mapName);
+    }
+
+    @Test
+    public void testLoadAllWithKeySet() {
+        initWithMapStore();
+
+        testLoadAllWithKeySet(instance, lite, mapName);
     }
 
     public static void testPut(HazelcastInstance instance, HazelcastInstance lite, String mapName) {
@@ -349,6 +366,38 @@ public class NearCacheLiteMemberTest {
         assertNearCacheIsEmptyEventually(lite, mapName);
     }
 
+    public static void testLoadAll(HazelcastInstance instance, HazelcastInstance lite, String mapName) {
+        IMap<Object, Object> map = instance.getMap(mapName);
+        map.put(1, 1);
+
+        IMap<Object, Object> liteMap = lite.getMap(mapName);
+        liteMap.get(1);
+
+        map.loadAll(true);
+
+        assertNearCacheIsEmptyEventually(lite, mapName);
+    }
+
+    public static void testLoadAllWithKeySet(HazelcastInstance instance, HazelcastInstance lite, String mapName) {
+        IMap<Object, Object> map = instance.getMap(mapName);
+        map.put(1, 1);
+
+        IMap<Object, Object> liteMap = lite.getMap(mapName);
+        liteMap.get(1);
+
+        Set<Object> keySet = map.keySet();
+        map.loadAll(keySet, true);
+
+        assertNearCacheIsEmptyEventually(lite, mapName);
+    }
+
+    private void initWithMapStore() {
+        factory.terminateAll();
+
+        instance = factory.newHazelcastInstance(createNearCachedMapConfigWithMapStoreConfig(mapName, false));
+        lite = factory.newHazelcastInstance(createNearCachedMapConfigWithMapStoreConfig(mapName, true));
+    }
+
     private static class DummyEntryProcessor implements EntryProcessor<Object, Object>, Serializable {
 
         private final Object newValue;
@@ -379,15 +428,32 @@ public class NearCacheLiteMemberTest {
         return config;
     }
 
+    public static Config createNearCachedMapConfigWithMapStoreConfig(String mapName, boolean liteMember) {
+        NearCacheTestSupport.SimpleMapStore store = new NearCacheTestSupport.SimpleMapStore();
+
+        MapStoreConfig mapStoreConfig = new MapStoreConfig();
+        mapStoreConfig.setEnabled(true);
+        mapStoreConfig.setImplementation(store);
+
+        NearCacheConfig nearCacheConfig = new NearCacheConfig();
+        nearCacheConfig.setInvalidateOnChange(true);
+
+        Config config = new Config();
+        config.setLiteMember(liteMember);
+        config.getMapConfig(mapName)
+                .setMapStoreConfig(mapStoreConfig)
+                .setNearCacheConfig(nearCacheConfig);
+
+        return config;
+    }
+
     private static MapService getMapService(HazelcastInstance instance) {
         return getNodeEngineImpl(instance).getService(MapService.SERVICE_NAME);
     }
 
     private static NearCache<Data, Object> getNearCache(HazelcastInstance instance, String mapName) {
-        return getMapService(instance)
-                .getMapServiceContext()
-                .getNearCacheProvider()
-                .getOrCreateNearCache(mapName);
+        IMap map = instance.getMap(mapName);
+        return ((NearCachedMapProxyImpl) map).getNearCache();
     }
 
     private static void assertNullNearCacheEntryEventually(final HazelcastInstance instance, String mapName, Object key) {
@@ -404,7 +470,7 @@ public class NearCacheLiteMemberTest {
     private static void assertLiteMemberNearCacheNonEmpty(HazelcastInstance instance, String mapName) {
         NearCache nearCache = getNearCache(instance, mapName);
         int sizeAfterPut = nearCache.size();
-        assertTrue("NearCache size should be > 0 but was " + sizeAfterPut, sizeAfterPut > 0);
+        assertTrue("Near Cache size should be > 0 but was " + sizeAfterPut, sizeAfterPut > 0);
     }
 
     private static void assertNearCacheIsEmptyEventually(HazelcastInstance instance, String mapName) {

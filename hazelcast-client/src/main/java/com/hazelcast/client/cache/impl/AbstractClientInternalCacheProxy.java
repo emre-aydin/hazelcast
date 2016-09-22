@@ -54,6 +54,7 @@ import com.hazelcast.core.ExecutionCallback;
 import com.hazelcast.core.HazelcastInstanceNotActiveException;
 import com.hazelcast.core.ICompletableFuture;
 import com.hazelcast.nio.serialization.Data;
+import com.hazelcast.spi.serialization.SerializationService;
 import com.hazelcast.util.ExceptionUtil;
 import com.hazelcast.util.executor.CompletedFuture;
 
@@ -69,7 +70,6 @@ import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Future;
-import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
 
 import static com.hazelcast.cache.impl.CacheProxyUtil.validateNotNull;
@@ -168,7 +168,7 @@ abstract class AbstractClientInternalCacheProxy<K, V>
 
         if (nearCache != null) {
             statistics = new ClientCacheStatisticsImpl(System.currentTimeMillis(),
-                                                       nearCache.getNearCacheStats());
+                    nearCache.getNearCacheStats());
         } else {
             statistics = new ClientCacheStatisticsImpl(System.currentTimeMillis());
         }
@@ -198,20 +198,6 @@ abstract class AbstractClientInternalCacheProxy<K, V>
                             null);
             nearCache = nearCacheManager.getOrCreateNearCache(nameWithPrefix, nearCacheConfig, nearCacheContext);
             registerInvalidationListener();
-        }
-    }
-
-    private static final class ClientNearCacheExecutor implements NearCacheExecutor {
-
-        private ClientExecutionService clientExecutionService;
-
-        private ClientNearCacheExecutor(ClientExecutionService clientExecutionService) {
-            this.clientExecutionService = clientExecutionService;
-        }
-
-        @Override
-        public ScheduledFuture<?> scheduleWithRepetition(Runnable command, long initialDelay, long delay, TimeUnit unit) {
-            return clientExecutionService.scheduleWithRepetition(command, initialDelay, delay, unit);
         }
     }
 
@@ -503,11 +489,11 @@ abstract class AbstractClientInternalCacheProxy<K, V>
 
     private Object putInternalAsync(final V value, final boolean isGet, final long start, final Data keyData,
                                     final Data valueData, ClientInvocationFuture future) {
-        OneShotExecutionCallback oneShotExecutionCallback = null;
+        OneShotExecutionCallback<V> oneShotExecutionCallback = null;
         if (nearCache != null || statisticsEnabled) {
-            oneShotExecutionCallback = new OneShotExecutionCallback() {
+            oneShotExecutionCallback = new OneShotExecutionCallback<V>() {
                 @Override
-                protected void onResponseInternal(Object responseData) {
+                protected void onResponseInternal(V responseData) {
                     if (nearCache != null) {
                         if (cacheOnUpdate) {
                             storeInNearCache(keyData, valueData, value);
@@ -525,24 +511,21 @@ abstract class AbstractClientInternalCacheProxy<K, V>
                 }
             };
         }
-        ClientDelegatingFuture delegatingFuture;
-        if (oneShotExecutionCallback != null) {
-            delegatingFuture =
-                    new CallbackAwareClientDelegatingFuture(future, clientContext.getSerializationService(),
-                            PUT_RESPONSE_DECODER, oneShotExecutionCallback);
-            delegatingFuture.andThen(oneShotExecutionCallback);
-        } else {
-            delegatingFuture =
-                    new ClientDelegatingFuture(future, clientContext.getSerializationService(), PUT_RESPONSE_DECODER);
+        SerializationService serializationService = clientContext.getSerializationService();
+        if (oneShotExecutionCallback == null) {
+            return new ClientDelegatingFuture<V>(future, serializationService, PUT_RESPONSE_DECODER);
         }
+        ClientDelegatingFuture<V> delegatingFuture = new CallbackAwareClientDelegatingFuture<V>(future,
+                serializationService, PUT_RESPONSE_DECODER, oneShotExecutionCallback);
+        delegatingFuture.andThen(oneShotExecutionCallback);
         return delegatingFuture;
     }
 
     private Object putInternalSync(V value, boolean isGet, long start, Data keyData, Data valueData,
                                    ClientInvocationFuture future) {
         try {
-            ClientDelegatingFuture delegatingFuture = new ClientDelegatingFuture(future, clientContext.getSerializationService(),
-                    PUT_RESPONSE_DECODER);
+            ClientDelegatingFuture delegatingFuture = new ClientDelegatingFuture(future,
+                    clientContext.getSerializationService(), PUT_RESPONSE_DECODER);
             Object response = delegatingFuture.get();
             if (nearCache != null) {
                 if (cacheOnUpdate) {
@@ -574,7 +557,8 @@ abstract class AbstractClientInternalCacheProxy<K, V>
         }
     }
 
-    protected Object putIfAbsentInternal(K key, V value, ExpiryPolicy expiryPolicy, boolean withCompletionEvent, boolean async) {
+    protected Object putIfAbsentInternal(K key, V value, ExpiryPolicy expiryPolicy, boolean withCompletionEvent,
+                                         boolean async) {
         long start = System.nanoTime();
         ensureOpen();
         validateNotNull(key, value);
@@ -944,7 +928,7 @@ abstract class AbstractClientInternalCacheProxy<K, V>
     }
 
     private void registerInvalidationListener() {
-        if (nearCache != null && nearCache.isInvalidateOnChange()) {
+        if (nearCache != null && nearCache.isInvalidatedOnChange()) {
             Client client = clientContext.getClusterService().getLocalClient();
             EventHandler handler = new NearCacheInvalidationHandler(client);
             ListenerMessageCodec listenerCodec = createInvalidationListenerCodec();
@@ -977,12 +961,11 @@ abstract class AbstractClientInternalCacheProxy<K, V>
     }
 
     private void removeInvalidationListener() {
-        if (nearCache != null && nearCache.isInvalidateOnChange()) {
+        if (nearCache != null && nearCache.isInvalidatedOnChange()) {
             String registrationId = nearCacheMembershipRegistrationId;
             if (registrationId != null) {
                 clientContext.getListenerService().deregisterListener(registrationId);
             }
         }
     }
-
 }

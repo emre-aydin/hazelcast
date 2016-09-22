@@ -16,9 +16,10 @@
 
 package com.hazelcast.map.impl.eviction;
 
+import com.hazelcast.config.Config;
 import com.hazelcast.core.HazelcastInstance;
 import com.hazelcast.map.impl.MapService;
-import com.hazelcast.map.impl.MapServiceContext;
+import com.hazelcast.map.impl.PartitionContainer;
 import com.hazelcast.test.HazelcastSerialClassRunner;
 import com.hazelcast.test.HazelcastTestSupport;
 import com.hazelcast.test.annotation.ParallelTest;
@@ -33,6 +34,7 @@ import static com.hazelcast.map.impl.MapService.SERVICE_NAME;
 import static com.hazelcast.map.impl.eviction.ExpirationManager.SYS_PROP_EXPIRATION_CLEANUP_OPERATION_COUNT;
 import static com.hazelcast.map.impl.eviction.ExpirationManager.SYS_PROP_EXPIRATION_CLEANUP_PERCENTAGE;
 import static com.hazelcast.map.impl.eviction.ExpirationManager.SYS_PROP_EXPIRATION_TASK_PERIOD_SECONDS;
+import static java.lang.Integer.parseInt;
 import static java.lang.String.valueOf;
 import static java.lang.System.clearProperty;
 import static java.lang.System.getProperty;
@@ -53,7 +55,7 @@ public class ExpirationManagerTest extends HazelcastTestSupport {
             int expectedPeriodSeconds = 12;
             setProperty(SYS_PROP_EXPIRATION_TASK_PERIOD_SECONDS, valueOf(expectedPeriodSeconds));
 
-            int actualTaskPeriodSeconds = new ExpirationManager(getMapServiceContext()).getTaskPeriodSeconds();
+            int actualTaskPeriodSeconds = newExpirationManager(createHazelcastInstance()).getTaskPeriodSeconds();
 
             assertEquals(expectedPeriodSeconds, actualTaskPeriodSeconds);
         } finally {
@@ -79,7 +81,7 @@ public class ExpirationManagerTest extends HazelcastTestSupport {
             thrown.expectMessage("taskPeriodSeconds should be a positive number");
             thrown.expect(IllegalArgumentException.class);
 
-            new ExpirationManager(getMapServiceContext());
+            newExpirationManager(createHazelcastInstance());
         } finally {
             restoreProperty(SYS_PROP_EXPIRATION_TASK_PERIOD_SECONDS, previous);
         }
@@ -92,7 +94,7 @@ public class ExpirationManagerTest extends HazelcastTestSupport {
             int expectedCleanupPercentage = 77;
             setProperty(SYS_PROP_EXPIRATION_CLEANUP_PERCENTAGE, valueOf(expectedCleanupPercentage));
 
-            int actualCleanupPercentage = new ExpirationManager(getMapServiceContext()).getCleanupPercentage();
+            int actualCleanupPercentage = newExpirationManager(createHazelcastInstance()).getCleanupPercentage();
 
             assertEquals(expectedCleanupPercentage, actualCleanupPercentage);
         } finally {
@@ -109,7 +111,7 @@ public class ExpirationManagerTest extends HazelcastTestSupport {
             thrown.expectMessage("cleanupPercentage should be in range (0,100]");
             thrown.expect(IllegalArgumentException.class);
 
-            new ExpirationManager(getMapServiceContext());
+            newExpirationManager(createHazelcastInstance());
         } finally {
             restoreProperty(SYS_PROP_EXPIRATION_CLEANUP_PERCENTAGE, previous);
         }
@@ -123,7 +125,7 @@ public class ExpirationManagerTest extends HazelcastTestSupport {
             int expectedCleanupOperationCount = 19;
             setProperty(SYS_PROP_EXPIRATION_CLEANUP_OPERATION_COUNT, valueOf(expectedCleanupOperationCount));
 
-            int actualCleanupOperationCount = new ExpirationManager(getMapServiceContext()).getCleanupOperationCount();
+            int actualCleanupOperationCount = newExpirationManager(createHazelcastInstance()).getCleanupOperationCount();
 
             assertEquals(expectedCleanupOperationCount, actualCleanupOperationCount);
         } finally {
@@ -140,14 +142,50 @@ public class ExpirationManagerTest extends HazelcastTestSupport {
             thrown.expectMessage("cleanupOperationCount should be a positive number");
             thrown.expect(IllegalArgumentException.class);
 
-            new ExpirationManager(getMapServiceContext());
+            newExpirationManager(createHazelcastInstance());
         } finally {
             restoreProperty(SYS_PROP_EXPIRATION_CLEANUP_OPERATION_COUNT, previous);
         }
     }
 
-    private MapServiceContext getMapServiceContext() {
-        HazelcastInstance node = createHazelcastInstance();
-        return ((MapService) getNodeEngineImpl(node).getService(SERVICE_NAME)).getMapServiceContext();
+    @Test
+    public void gets_taskPeriodSeconds_from_config() throws Exception {
+        Config config = new Config();
+        String taskPeriodSeconds = "77";
+        config.setProperty(SYS_PROP_EXPIRATION_TASK_PERIOD_SECONDS, taskPeriodSeconds);
+        HazelcastInstance node = createHazelcastInstance(config);
+        ExpirationManager expirationManager = newExpirationManager(node);
+
+        assertEquals(parseInt(taskPeriodSeconds), expirationManager.getTaskPeriodSeconds());
+    }
+
+    @Test
+    public void gets_cleanupPercentage_from_config() throws Exception {
+        Config config = new Config();
+        String cleanupPercentage = "99";
+        config.setProperty(SYS_PROP_EXPIRATION_CLEANUP_PERCENTAGE, cleanupPercentage);
+        HazelcastInstance node = createHazelcastInstance(config);
+        ExpirationManager expirationManager = newExpirationManager(node);
+
+        assertEquals(parseInt(cleanupPercentage), expirationManager.getCleanupPercentage());
+    }
+
+    @Test
+    public void gets_cleanupOperationCount_from_config() throws Exception {
+        Config config = new Config();
+        String cleanupOperationCount = "777";
+        config.setProperty(SYS_PROP_EXPIRATION_CLEANUP_OPERATION_COUNT, cleanupOperationCount);
+        HazelcastInstance node = createHazelcastInstance(config);
+        ExpirationManager expirationManager = newExpirationManager(node);
+
+        assertEquals(parseInt(cleanupOperationCount), expirationManager.getCleanupOperationCount());
+    }
+
+    private ExpirationManager newExpirationManager(HazelcastInstance node) {
+        return new ExpirationManager(getPartitionContainers(node), getNodeEngineImpl(node));
+    }
+
+    private PartitionContainer[] getPartitionContainers(HazelcastInstance instance) {
+        return ((MapService) getNodeEngineImpl(instance).getService(SERVICE_NAME)).getMapServiceContext().getPartitionContainers();
     }
 }
