@@ -119,14 +119,17 @@
                         <configuration>
                             <instructions>
                                 <Bundle-Activator>com.hazelcast.osgi.impl.Activator</Bundle-Activator>
+                                <Embed-Dependency>hazelcast-client-protocol</Embed-Dependency>
                                 <Export-Package>
-                                    com.hazelcast.*
+                                    !com.hazelcast.*,
+                                    !com.hazelcast.client.osgi.*
                                 </Export-Package>
                                 <Import-Package>
                                     !org.junit,
                                     !com.hazelcast.*,
                                     !com.eclipsesource.json,
                                     sun.misc;resolution:=optional,
+                                    com.hazelcast.client.impl.protocol.*,
                                     javax.cache;resolution:=optional,
                                     javax.cache.*;resolution:=optional,
                                     org.apache.log4j;resolution:=optional,
@@ -142,6 +145,7 @@
                     </execution>
                 </executions>
             </plugin>
+
 
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
