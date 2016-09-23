@@ -16,7 +16,7 @@
 
 package com.hazelcast.client.osgi;
 
-import com.hazelcast.config.Config;
+import com.hazelcast.client.config.ClientConfig;
 import com.hazelcast.osgi.HazelcastOSGiInstance;
 import org.osgi.framework.Bundle;
 
@@ -71,7 +71,7 @@ public interface HazelcastClientOSGiService {
      * @param config Configuration for the new {@link HazelcastOSGiClientInstance} (member)
      * @return the new {@link HazelcastOSGiClientInstance}
      */
-    HazelcastOSGiClientInstance newHazelcastInstance(Config config);
+    HazelcastOSGiClientInstance newHazelcastInstance(ClientConfig config);
 
     /**
      * Creates a new {@link HazelcastOSGiClientInstance}

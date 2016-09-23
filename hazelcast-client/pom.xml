@@ -88,7 +88,9 @@
                                 <Bundle-Activator>com.hazelcast.client.osgi.Activator</Bundle-Activator>
                                 <Export-Package>
                                     com.hazelcast.client.*,
-                                    com.hazelcast.core.*
+                                    com.hazelcast.core.*,
+                                    com.hazelcast.config.*,
+                                    com.hazelcast.client.impl.*
                                 </Export-Package>
                                 <Import-Package>
                                     !org.junit,

@@ -66,6 +66,7 @@ class HazelcastClientOSGiServiceImpl
     // it can be read from any thread without `synchronized` blocks and without `volatile` they may seen invalid value.
     private volatile HazelcastOSGiClientInstance hazelcastInstance;
 
+
     public HazelcastClientOSGiServiceImpl(Bundle ownerBundle) {
         this(ownerBundle, DEFAULT_ID);
     }
@@ -109,8 +110,8 @@ class HazelcastClientOSGiServiceImpl
         return config;
     }
 
-    private HazelcastInstance createHazelcastInstance(Config config) {
-        return HazelcastClient.newHazelcastClient(new ClientConfig());
+    private HazelcastInstance createHazelcastInstance(ClientConfig config) {
+        return HazelcastClient.newHazelcastClient(config);
     }
 
     private HazelcastOSGiClientInstance registerInstance(HazelcastInstance instance) {
@@ -233,7 +234,7 @@ class HazelcastClientOSGiServiceImpl
     }
 
     @Override
-    public HazelcastOSGiClientInstance newHazelcastInstance(Config config) {
+    public HazelcastOSGiClientInstance newHazelcastInstance(ClientConfig config) {
         // No need to complex lock-free approaches since this is not called frequently. Simple is good.
         synchronized (serviceMutex) {
             checkActive();
