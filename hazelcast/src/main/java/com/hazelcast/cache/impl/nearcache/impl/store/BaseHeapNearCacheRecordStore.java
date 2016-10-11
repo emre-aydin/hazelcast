@@ -34,6 +34,7 @@ public abstract class BaseHeapNearCacheRecordStore<K, V, R extends NearCacheReco
         super(nearCacheConfig, nearCacheContext);
     }
 
+    @Override
     protected MaxSizeChecker createNearCacheMaxSizeChecker(EvictionConfig evictionConfig,
                                                            NearCacheConfig nearCacheConfig,
                                                            NearCacheContext nearCacheContext) {
@@ -74,6 +75,11 @@ public abstract class BaseHeapNearCacheRecordStore<K, V, R extends NearCacheReco
             nearCacheStats.decrementOwnedEntryMemoryCost(getTotalStorageMemoryCost(key, removedRecord));
         }
         return removedRecord;
+    }
+
+    @Override
+    protected boolean containsRecordKey(K key) {
+        return records.containsKey(key);
     }
 
     @Override

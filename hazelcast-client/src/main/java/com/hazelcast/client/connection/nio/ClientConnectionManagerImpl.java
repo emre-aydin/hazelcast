@@ -41,6 +41,7 @@ import com.hazelcast.client.spi.impl.listener.ClientListenerServiceImpl;
 import com.hazelcast.config.SocketInterceptorConfig;
 import com.hazelcast.core.ExecutionCallback;
 import com.hazelcast.core.HazelcastException;
+import com.hazelcast.instance.BuildInfoProvider;
 import com.hazelcast.internal.serialization.InternalSerializationService;
 import com.hazelcast.logging.ILogger;
 import com.hazelcast.logging.LoggingService;
@@ -155,10 +156,10 @@ public class ClientConnectionManagerImpl implements ClientConnectionManager {
                 outOfMemoryHandler);
         client.getMetricsRegistry().scanAndRegister(inputThread, "tcp." + inputThread.getName());
 
-        outputThread = new ClientNonBlockingOutputThread(
+        outputThread = new NonBlockingIOThread(
                 client.getThreadGroup(),
                 client.getName() + ".thread-out",
-                loggingService.getLogger(ClientNonBlockingOutputThread.class),
+                loggingService.getLogger(NonBlockingIOThread.class),
                 outOfMemoryHandler);
         client.getMetricsRegistry().scanAndRegister(outputThread, "tcp." + outputThread.getName());
     }
@@ -227,7 +228,7 @@ public class ClientConnectionManagerImpl implements ClientConnectionManager {
                 if (connection != null) {
                     return connection;
                 }
-                AuthenticationFuture firstCallback = triggerConnect(address, asOwner);
+                AuthenticationFuture firstCallback = triggerConnect(addressTranslator.translate(address), asOwner);
                 connection = firstCallback.get(connectionTimeout);
                 if (!asOwner) {
                     return connection;
@@ -353,7 +354,6 @@ public class ClientConnectionManagerImpl implements ClientConnectionManager {
             }
             socketChannel.configureBlocking(false);
             socket.setSoTimeout(0);
-            clientConnection.getReadHandler().register();
             clientConnection.init();
             return clientConnection;
         } catch (Exception e) {
@@ -477,13 +477,13 @@ public class ClientConnectionManagerImpl implements ClientConnectionManager {
         ClientMessage clientMessage;
         if (credentials.getClass().equals(UsernamePasswordCredentials.class)) {
             UsernamePasswordCredentials cr = (UsernamePasswordCredentials) credentials;
-            clientMessage = ClientAuthenticationCodec.encodeRequest(cr.getUsername(), cr.getPassword(),
-                    uuid, ownerUuid, asOwner, ClientTypes.JAVA, serializationVersion);
+            clientMessage = ClientAuthenticationCodec
+                    .encodeRequest(cr.getUsername(), cr.getPassword(), uuid, ownerUuid, asOwner, ClientTypes.JAVA,
+                            serializationVersion, BuildInfoProvider.getBuildInfo().getVersion());
         } else {
             Data data = ss.toData(credentials);
             clientMessage = ClientAuthenticationCustomCodec.encodeRequest(data, uuid, ownerUuid,
-                    asOwner, ClientTypes.JAVA, serializationVersion);
-
+                    asOwner, ClientTypes.JAVA, serializationVersion, BuildInfoProvider.getBuildInfo().getVersion());
         }
         ClientInvocation clientInvocation = new ClientInvocation(client, clientMessage, connection);
         ClientInvocationFuture future = clientInvocation.invokeUrgent();

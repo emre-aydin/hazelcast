@@ -18,11 +18,13 @@ package com.hazelcast.internal.cluster.impl.operations;
 
 import com.hazelcast.cluster.ClusterState;
 import com.hazelcast.core.MemberLeftException;
+import com.hazelcast.internal.cluster.impl.ClusterDataSerializerHook;
 import com.hazelcast.internal.cluster.impl.ClusterServiceImpl;
 import com.hazelcast.internal.cluster.impl.ClusterStateManager;
 import com.hazelcast.nio.Address;
 import com.hazelcast.nio.ObjectDataInput;
 import com.hazelcast.nio.ObjectDataOutput;
+import com.hazelcast.nio.serialization.IdentifiedDataSerializable;
 import com.hazelcast.spi.ExceptionAction;
 import com.hazelcast.spi.Operation;
 import com.hazelcast.spi.exception.TargetNotMemberException;
@@ -32,20 +34,22 @@ import com.hazelcast.util.EmptyStatement;
 
 import java.io.IOException;
 
-public class ChangeClusterStateOperation extends Operation implements AllowedDuringPassiveState {
+public class ChangeClusterStateOperation extends Operation implements AllowedDuringPassiveState, IdentifiedDataSerializable {
 
     private ClusterState newState;
     private Address initiator;
     private String txnId;
     private String stateName;
+    private boolean isTransient;
 
     public ChangeClusterStateOperation() {
     }
 
-    public ChangeClusterStateOperation(ClusterState newState, Address initiator, String txnId) {
+    public ChangeClusterStateOperation(ClusterState newState, Address initiator, String txnId, boolean isTransient) {
         this.newState = newState;
         this.initiator = initiator;
         this.txnId = txnId;
+        this.isTransient = isTransient;
     }
 
     @Override
@@ -59,8 +63,9 @@ public class ChangeClusterStateOperation extends Operation implements AllowedDur
     public void run() throws Exception {
         ClusterServiceImpl service = getService();
         ClusterStateManager clusterStateManager = service.getClusterStateManager();
-        getLogger().info("Changing cluster state state to " + newState + ", Initiator: " + initiator);
-        clusterStateManager.commitClusterState(newState, initiator, txnId);
+        getLogger().info("Changing cluster state state to " + newState + ", Initiator: " + initiator
+                + " transient: " + isTransient);
+        clusterStateManager.commitClusterState(newState, initiator, txnId, isTransient);
     }
 
     @Override
@@ -96,6 +101,7 @@ public class ChangeClusterStateOperation extends Operation implements AllowedDur
         out.writeUTF(newState.toString());
         initiator.writeData(out);
         out.writeUTF(txnId);
+        out.writeBoolean(isTransient);
     }
 
     @Override
@@ -110,5 +116,16 @@ public class ChangeClusterStateOperation extends Operation implements AllowedDur
         initiator = new Address();
         initiator.readData(in);
         txnId = in.readUTF();
+        isTransient = in.readBoolean();
+    }
+
+    @Override
+    public int getFactoryId() {
+        return ClusterDataSerializerHook.F_ID;
+    }
+
+    @Override
+    public int getId() {
+        return ClusterDataSerializerHook.CHANGE_CLUSTER_STATE;
     }
 }

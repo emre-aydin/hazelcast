@@ -21,12 +21,15 @@ import com.hazelcast.test.HazelcastParallelClassRunner;
 import com.hazelcast.test.annotation.ParallelTest;
 import com.hazelcast.test.annotation.QuickTest;
 import com.hazelcast.util.HashUtil;
+import com.hazelcast.util.collection.IntHashSet;
+import org.HdrHistogram.Histogram;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.experimental.categories.Category;
 import org.junit.runner.RunWith;
 
 import java.nio.ByteBuffer;
+import java.util.Random;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.fail;
@@ -38,6 +41,9 @@ public abstract class HyperLogLogEncoderAbstractTest {
     private HyperLogLogEncoder encoder;
 
     public abstract int runLength();
+
+    public abstract int precision();
+
     public abstract HyperLogLogEncoder createStore();
 
     @Before
@@ -51,34 +57,49 @@ public abstract class HyperLogLogEncoderAbstractTest {
         assertEquals(1L, encoder.estimate());
     }
 
-    @Test
-    public void addAll() {
-        boolean changed = false;
-        for (long hash : new long[] { 1L, 1L, 2000L, 3000, 40000L }) {
-            changed |= encoder.add(hash);
-        }
-        assertEquals(true, changed);
-        assertEquals(4L, encoder.estimate());
-    }
 
+    /**
+     * - Add up-to runLength() random numbers on both a Set and a HyperLogLog encoder.
+     * - Sample the actual count, and the estimate respectively every 100 operations.
+     * - Compute the error rate, of the measurements and store it in a histogram.
+     * - Assert that the 99th percentile of the histogram is less than the expected max error,
+     * which is the result of std error (1.04 / sqrt(m)) + 3%.
+     * (2% is the typical accuracy, but tests on the implementation showed up rare occurrences of 3%)
+     */
     @Test
-    public void addBigRange() {
-        int sampleStep = 1000;
+    public void testEstimateErrorRateForBigCardinalities() {
+        double stdError = (1.04 / Math.sqrt(1 << precision())) * 100;
+        double maxError = Math.ceil(stdError + 3.0);
+
+        IntHashSet actualCount = new IntHashSet(runLength(), -1);
+        Random random = new Random();
+        Histogram histogram = new Histogram(5);
         ByteBuffer bb = ByteBuffer.allocate(4);
 
+        int sampleStep = 100;
+        long expected;
+        long actual;
+
         for (int i = 1; i <= runLength(); i++) {
+            int toCount = random.nextInt();
+            actualCount.add(toCount);
+
             bb.clear();
-            bb.putInt(i);
+            bb.putInt(toCount);
             encoder.add(HashUtil.MurmurHash3_x64_64(bb.array(), 0, bb.array().length));
 
             if (i % sampleStep == 0) {
-                long est = encoder.estimate();
-                double errorPct = ((est * 100.0) / i) - 100;
-                // 3.0 % is the max error identified during the multi-set tests.
-                if (errorPct > 3.0) {
-                    fail("Max error reached, for count: " + i + ", got: " + errorPct);
-                }
+                expected = actualCount.size();
+                actual = encoder.estimate();
+                double errorPct = ((actual * 100.0) / expected) - 100;
+                histogram.recordValue(Math.abs((long) (errorPct * 100)));
             }
+        }
+
+        double errorPerc99 = histogram.getValueAtPercentile(99) / 100.0;
+        if (errorPerc99 > maxError) {
+            fail("For P=" + precision() + ", max error=" + maxError + "% expected. " +
+                    "Error: " + errorPerc99 + "%.");
         }
     }
 }

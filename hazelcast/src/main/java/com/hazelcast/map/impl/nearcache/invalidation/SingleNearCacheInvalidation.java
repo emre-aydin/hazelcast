@@ -25,8 +25,7 @@ import java.io.IOException;
 import static com.hazelcast.util.Preconditions.checkNotNull;
 
 /**
- * Represents a single invalidation event.
- * Special case: When key is null, it means remove all entries from near cache.
+ * Represents a single key invalidation.
  */
 public class SingleNearCacheInvalidation extends Invalidation {
 
@@ -39,7 +38,7 @@ public class SingleNearCacheInvalidation extends Invalidation {
     public SingleNearCacheInvalidation(Data key, String mapName, String sourceUuid) {
         super(mapName);
 
-        this.key = key;
+        this.key = checkNotNull(key, "key cannot be null");
         this.sourceUuid = checkNotNull(sourceUuid, "sourceUuid cannot be null");
     }
 

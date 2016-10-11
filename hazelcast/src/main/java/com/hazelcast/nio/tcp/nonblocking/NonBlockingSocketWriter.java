@@ -16,45 +16,44 @@
 
 package com.hazelcast.nio.tcp.nonblocking;
 
-import com.hazelcast.internal.metrics.MetricsRegistry;
 import com.hazelcast.internal.metrics.Probe;
 import com.hazelcast.internal.util.counters.SwCounter;
-import com.hazelcast.nio.IOUtil;
+import com.hazelcast.logging.ILogger;
+import com.hazelcast.nio.Connection;
 import com.hazelcast.nio.OutboundFrame;
 import com.hazelcast.nio.Packet;
-import com.hazelcast.nio.ascii.TextWriteHandler;
-import com.hazelcast.nio.tcp.ClientWriteHandler;
+import com.hazelcast.nio.tcp.SocketChannelWrapper;
 import com.hazelcast.nio.tcp.SocketWriter;
+import com.hazelcast.nio.tcp.SocketWriterInitializer;
 import com.hazelcast.nio.tcp.TcpIpConnection;
 import com.hazelcast.nio.tcp.WriteHandler;
+import com.hazelcast.nio.tcp.nonblocking.iobalancer.IOBalancer;
 
 import java.io.IOException;
-import java.net.SocketException;
 import java.nio.ByteBuffer;
-import java.nio.channels.SelectionKey;
 import java.util.Queue;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.logging.Level;
 
 import static com.hazelcast.internal.metrics.ProbeLevel.DEBUG;
 import static com.hazelcast.internal.util.counters.SwCounter.newSwCounter;
-import static com.hazelcast.nio.IOService.KILO_BYTE;
-import static com.hazelcast.nio.Protocols.CLIENT_BINARY_NEW;
 import static com.hazelcast.nio.Protocols.CLUSTER;
 import static com.hazelcast.util.EmptyStatement.ignore;
-import static com.hazelcast.util.StringUtil.stringToBytes;
 import static java.lang.Math.max;
 import static java.lang.System.currentTimeMillis;
+import static java.nio.channels.SelectionKey.OP_WRITE;
 
 /**
  * The writing side of the {@link TcpIpConnection}.
  */
-public final class NonBlockingSocketWriter extends AbstractHandler implements Runnable, SocketWriter {
+public final class NonBlockingSocketWriter
+        extends AbstractHandler<Connection>
+        implements Runnable, SocketWriter {
 
     private static final long TIMEOUT = 3;
+
 
     @SuppressWarnings("checkstyle:visibilitymodifier")
     @Probe(name = "writeQueueSize")
@@ -62,20 +61,20 @@ public final class NonBlockingSocketWriter extends AbstractHandler implements Ru
     @SuppressWarnings("checkstyle:visibilitymodifier")
     @Probe(name = "priorityWriteQueueSize")
     public final Queue<OutboundFrame> urgentWriteQueue = new ConcurrentLinkedQueue<OutboundFrame>();
-    @Probe(name = "eventCount")
-    private final SwCounter eventCount = newSwCounter();
-    private final AtomicBoolean scheduled = new AtomicBoolean(false);
+    private final SocketWriterInitializer initializer;
+
     private ByteBuffer outputBuffer;
+
+    private final AtomicBoolean scheduled = new AtomicBoolean(false);
     @Probe(name = "bytesWritten")
     private final SwCounter bytesWritten = newSwCounter();
     @Probe(name = "normalFramesWritten")
     private final SwCounter normalFramesWritten = newSwCounter();
     @Probe(name = "priorityFramesWritten")
     private final SwCounter priorityFramesWritten = newSwCounter();
-    private final MetricsRegistry metricsRegistry;
+    private WriteHandler writeHandler;
 
     private volatile OutboundFrame currentFrame;
-    private WriteHandler writeHandler;
     private volatile long lastWriteTime;
 
     // this field will be accessed by the NonBlockingIOThread or
@@ -83,12 +82,14 @@ public final class NonBlockingSocketWriter extends AbstractHandler implements Ru
     // This prevents running into an NonBlockingIOThread that is migrating.
     private NonBlockingIOThread newOwner;
 
-    NonBlockingSocketWriter(TcpIpConnection connection, NonBlockingIOThread ioThread, MetricsRegistry metricsRegistry) {
-        super(connection, ioThread, SelectionKey.OP_WRITE);
-
-        // sensors
-        this.metricsRegistry = metricsRegistry;
-        metricsRegistry.scanAndRegister(this, "tcp.connection[" + connection.getMetricsId() + "].out");
+    public NonBlockingSocketWriter(Connection connection,
+                                   SocketChannelWrapper socketChannel,
+                                   NonBlockingIOThread ioThread,
+                                   ILogger logger,
+                                   IOBalancer balancer,
+                                   SocketWriterInitializer initializer) {
+        super(connection, ioThread, OP_WRITE, socketChannel, logger, balancer);
+        this.initializer = initializer;
     }
 
     @Override
@@ -144,7 +145,9 @@ public final class NonBlockingSocketWriter extends AbstractHandler implements Ru
             @Override
             public void run() {
                 try {
-                    createWriterHandler(protocol);
+                    if (writeHandler == null) {
+                        initializer.init(connection, NonBlockingSocketWriter.this, protocol);
+                    }
                 } catch (Throwable t) {
                     onFailure(t);
                 } finally {
@@ -159,31 +162,9 @@ public final class NonBlockingSocketWriter extends AbstractHandler implements Ru
         }
     }
 
-    private void createWriterHandler(String protocol) throws IOException {
-        if (writeHandler == null) {
-            if (CLUSTER.equals(protocol)) {
-                configureBuffers(ioService.getSocketSendBufferSize() * KILO_BYTE);
-                writeHandler = ioService.createWriteHandler(connection);
-                outputBuffer.put(stringToBytes(CLUSTER));
-                registerOp(SelectionKey.OP_WRITE);
-            } else if (CLIENT_BINARY_NEW.equals(protocol)) {
-                configureBuffers(ioService.getSocketClientReceiveBufferSize() * KILO_BYTE);
-                writeHandler = new ClientWriteHandler();
-            } else {
-                configureBuffers(ioService.getSocketClientSendBufferSize() * KILO_BYTE);
-                writeHandler = new TextWriteHandler(connection);
-            }
-        }
-    }
-
-    private void configureBuffers(int size) {
-        outputBuffer = IOUtil.newByteBuffer(size, ioService.isSocketBufferDirect());
-        try {
-            connection.setSendBufferSize(size);
-        } catch (SocketException e) {
-            logger.finest("Failed to adjust TCP send buffer of " + connection + " to "
-                    + size + " B.", e);
-        }
+    @Override
+    public void initOutputBuffer(ByteBuffer outputBuffer) {
+        this.outputBuffer = outputBuffer;
     }
 
     @Override
@@ -270,7 +251,7 @@ public final class NonBlockingSocketWriter extends AbstractHandler implements Ru
         if (dirtyOutputBuffer() || currentFrame != null) {
             // Because not all data was written to the socket, we need to register for OP_WRITE so we get
             // notified when the socketChannel is ready for more data.
-            registerOp(SelectionKey.OP_WRITE);
+            registerOp(OP_WRITE);
 
             // If the outputBuffer is not empty, we don't need to unschedule ourselves. This is because the
             // WriteHandler will be triggered by a nio write event to continue sending data.
@@ -278,7 +259,7 @@ public final class NonBlockingSocketWriter extends AbstractHandler implements Ru
         }
 
         // since everything is written, we are not interested anymore in write-events, so lets unsubscribe
-        unregisterOp(SelectionKey.OP_WRITE);
+        unregisterOp(OP_WRITE);
         // So the outputBuffer is empty, so we are going to unschedule ourselves.
         scheduled.set(false);
 
@@ -301,19 +282,14 @@ public final class NonBlockingSocketWriter extends AbstractHandler implements Ru
     }
 
     @Override
-    public long getEventCount() {
-        return eventCount.get();
-    }
-
-    @Override
     @SuppressWarnings("unchecked")
     public void handle() throws Exception {
         eventCount.inc();
         lastWriteTime = currentTimeMillis();
 
         if (writeHandler == null) {
-            logger.log(Level.WARNING, "SocketWriter is not set, creating SocketWriter with CLUSTER protocol!");
-            createWriterHandler(CLUSTER);
+            initializer.init(connection, this, CLUSTER);
+            registerOp(OP_WRITE);
         }
 
         fillOutputBuffer();
@@ -327,6 +303,11 @@ public final class NonBlockingSocketWriter extends AbstractHandler implements Ru
         } else {
             startMigration();
         }
+    }
+
+    @Override
+    public void initWriteHandler(WriteHandler writeHandler) {
+        this.writeHandler = writeHandler;
     }
 
     private void startMigration() throws IOException {
@@ -408,7 +389,6 @@ public final class NonBlockingSocketWriter extends AbstractHandler implements Ru
 
     @Override
     public void close() {
-        metricsRegistry.deregister(this);
         writeQueue.clear();
         urgentWriteQueue.clear();
 

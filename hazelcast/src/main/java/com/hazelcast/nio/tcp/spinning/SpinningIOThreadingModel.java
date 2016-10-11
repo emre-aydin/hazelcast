@@ -17,12 +17,13 @@
 package com.hazelcast.nio.tcp.spinning;
 
 import com.hazelcast.instance.HazelcastThreadGroup;
-import com.hazelcast.internal.metrics.MetricsRegistry;
 import com.hazelcast.logging.ILogger;
 import com.hazelcast.logging.LoggingService;
 import com.hazelcast.nio.tcp.IOThreadingModel;
 import com.hazelcast.nio.tcp.SocketReader;
+import com.hazelcast.nio.tcp.SocketReaderInitializerImpl;
 import com.hazelcast.nio.tcp.SocketWriter;
+import com.hazelcast.nio.tcp.SocketWriterInitializerImpl;
 import com.hazelcast.nio.tcp.TcpIpConnection;
 
 /**
@@ -40,23 +41,22 @@ import com.hazelcast.nio.tcp.TcpIpConnection;
  *
  * This is an experimental feature and disabled by default.
  */
-public class SpinningIOThreadingModel implements IOThreadingModel {
+public class SpinningIOThreadingModel implements IOThreadingModel<TcpIpConnection, SocketReader, SocketWriter> {
 
     private final ILogger logger;
-    private final MetricsRegistry metricsRegistry;
     private final LoggingService loggingService;
     private final SpinningInputThread inputThread;
     private final SpinningOutputThread outThread;
+    private final SocketWriterInitializerImpl socketWriterInitializer;
+    private final SocketReaderInitializerImpl socketReaderInitializer;
 
-    public SpinningIOThreadingModel(
-            LoggingService loggingService,
-            MetricsRegistry metricsRegistry,
-            HazelcastThreadGroup hazelcastThreadGroup) {
+    public SpinningIOThreadingModel(LoggingService loggingService, HazelcastThreadGroup hazelcastThreadGroup) {
         this.logger = loggingService.getLogger(SpinningIOThreadingModel.class);
-        this.metricsRegistry = metricsRegistry;
         this.loggingService = loggingService;
         this.inputThread = new SpinningInputThread(hazelcastThreadGroup);
         this.outThread = new SpinningOutputThread(hazelcastThreadGroup);
+        this.socketWriterInitializer = new SocketWriterInitializerImpl(logger);
+        this.socketReaderInitializer = new SocketReaderInitializerImpl(logger);
     }
 
     @Override
@@ -67,13 +67,13 @@ public class SpinningIOThreadingModel implements IOThreadingModel {
     @Override
     public SocketWriter newSocketWriter(TcpIpConnection connection) {
         ILogger logger = loggingService.getLogger(SpinningSocketWriter.class);
-        return new SpinningSocketWriter(connection, metricsRegistry, logger);
+        return new SpinningSocketWriter(connection, logger, socketWriterInitializer);
     }
 
     @Override
     public SocketReader newSocketReader(TcpIpConnection connection) {
         ILogger logger = loggingService.getLogger(SpinningSocketReader.class);
-        return new SpinningSocketReader(connection, metricsRegistry, logger);
+        return new SpinningSocketReader(connection, logger, connection.getSocketChannelWrapper(), socketReaderInitializer);
     }
 
     @Override

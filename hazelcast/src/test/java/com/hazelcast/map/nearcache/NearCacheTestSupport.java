@@ -56,15 +56,9 @@ public class NearCacheTestSupport extends HazelcastTestSupport {
     protected static final int MAX_TTL_SECONDS = 2;
     protected static final int MAX_IDLE_SECONDS = 1;
 
-    /**
-     * The OS Near Caches evict 20% + 1 of the Near Cache.
-     */
-    protected int getExpectedEvictionCount(int size) {
-        return (int) (size * 0.2) + 1;
-    }
-
     protected void testNearCacheEviction(IMap<Integer, Integer> map, int size) {
-        int expectedEvictions = getExpectedEvictionCount(size);
+        // all Near Cache implementations use the same eviction algorithm, which evicts a single entry
+        int expectedEvictions = 1;
 
         // populate map with an extra entry
         populateMap(map, size + 1);
@@ -310,6 +304,7 @@ public class NearCacheTestSupport extends HazelcastTestSupport {
             store.put(key, value);
         }
 
+        @Override
         public Set<K> loadAllKeys() {
             if (loadAllKeys) {
                 return store.keySet();

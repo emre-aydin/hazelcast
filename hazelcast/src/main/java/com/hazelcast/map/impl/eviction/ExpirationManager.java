@@ -34,6 +34,7 @@ import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
 import java.util.concurrent.ConcurrentMap;
+import java.util.concurrent.ScheduledFuture;
 
 import static com.hazelcast.map.impl.MapService.SERVICE_NAME;
 import static com.hazelcast.util.CollectionUtil.isEmpty;
@@ -45,13 +46,38 @@ import static java.util.Collections.sort;
 import static java.util.concurrent.TimeUnit.SECONDS;
 
 /**
- * Responsible for gradual cleanup of expired entries in partitions.
+ * Responsible for gradual cleanup of expired entries due to the time-to-live and max-idle-seconds.
  * By using these system properties, one can accelerate or slow down background expiration process.
  * <li>
- * <ul>{@value SYS_PROP_EXPIRATION_TASK_PERIOD_SECONDS}</ul>
- * <ul>{@value SYS_PROP_EXPIRATION_CLEANUP_PERCENTAGE}</ul>
- * <ul>{@value SYS_PROP_EXPIRATION_CLEANUP_OPERATION_COUNT}</ul>
+ * <ul>
+ *     {@value SYS_PROP_EXPIRATION_TASK_PERIOD_SECONDS}: Background task runs in every this period seconds.
+ *      Default is {@value DEFAULT_EXPIRATION_TASK_PERIOD_SECONDS}
+ * </ul>
+ * <ul>
+ *     {@value SYS_PROP_EXPIRATION_CLEANUP_PERCENTAGE}: Scannable percentage of entries of a map partition in every run round.
+ *      Default is {@value DEFAULT_EXPIRATION_CLEANUP_PERCENTAGE}%
+ * </ul>
+ * <ul>
+ *     {@value SYS_PROP_EXPIRATION_CLEANUP_OPERATION_COUNT}: Number of scannable partitions in every run round.
+ *      No default value exists. Dynamically calculated from partition and partition-thread counts
+ * </ul>
  * </li>
+ *
+ * These parameters can be set node-wide via Config object or system-wide via system property
+ * <p>
+ *     Node-wide setting example:
+ *      <pre>
+ *          Config config = new Config();
+ *          config.setProperty("{@value SYS_PROP_EXPIRATION_CLEANUP_OPERATION_COUNT}", "3");
+ *          Hazelcast.newHazelcastInstance(config);
+ *      </pre>
+ * </p>
+ * <p>
+ *     System-wide setting example:
+ *   <pre>
+ *       System.setProperty("{@value SYS_PROP_EXPIRATION_CLEANUP_OPERATION_COUNT}", "3");
+ *   </pre>
+ * </p>
  *
  * @since 3.3
  */
@@ -78,6 +104,8 @@ public final class ExpirationManager {
     private final int cleanupPercentage;
     private final int cleanupOperationCount;
 
+    private ScheduledFuture<?> expirationTask;
+
     @SuppressWarnings("checkstyle:magicnumber")
     @SuppressFBWarnings({"EI_EXPOSE_REP2"})
     public ExpirationManager(PartitionContainer[] partitionContainers, NodeEngine nodeEngine) {
@@ -100,6 +128,25 @@ public final class ExpirationManager {
         checkPositive(cleanupOperationCount, "cleanupOperationCount should be a positive number");
     }
 
+    public synchronized void start() {
+        if (expirationTask != null) {
+            return;
+        }
+
+        ClearExpiredRecordsTask task = new ClearExpiredRecordsTask();
+        expirationTask = executionService.scheduleWithRepetition(task, taskPeriodSeconds, taskPeriodSeconds, SECONDS);
+    }
+
+    public synchronized void stop() {
+        if (expirationTask == null) {
+            return;
+        }
+
+        expirationTask.cancel(true);
+        expirationTask = null;
+    }
+
+
     private int getInteger(String propertyName, int defaultValue) {
         Config config = nodeEngine.getConfig();
         String property = config.getProperty(propertyName);
@@ -120,11 +167,6 @@ public final class ExpirationManager {
         }
 
         return min(opCountFromPartitionCount, opCountFromThreadCount);
-    }
-
-    public void start() {
-        ClearExpiredRecordsTask task = new ClearExpiredRecordsTask();
-        executionService.scheduleWithRepetition(task, taskPeriodSeconds, taskPeriodSeconds, SECONDS);
     }
 
     /**

@@ -26,6 +26,7 @@ import com.hazelcast.internal.metrics.MetricsRegistry;
 import com.hazelcast.internal.metrics.Probe;
 import com.hazelcast.internal.partition.InternalPartitionService;
 import com.hazelcast.internal.serialization.InternalSerializationService;
+import com.hazelcast.internal.util.counters.Counter;
 import com.hazelcast.internal.util.counters.MwCounter;
 import com.hazelcast.logging.ILogger;
 import com.hazelcast.nio.Address;
@@ -62,6 +63,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicLong;
 
 import static com.hazelcast.internal.metrics.ProbeLevel.MANDATORY;
+import static com.hazelcast.internal.util.counters.MwCounter.newMwCounter;
 import static com.hazelcast.nio.Packet.FLAG_OP;
 import static com.hazelcast.nio.Packet.FLAG_RESPONSE;
 import static com.hazelcast.nio.Packet.FLAG_URGENT;
@@ -72,6 +74,7 @@ import static com.hazelcast.spi.InvocationBuilder.DEFAULT_TRY_COUNT;
 import static com.hazelcast.spi.InvocationBuilder.DEFAULT_TRY_PAUSE_MILLIS;
 import static com.hazelcast.spi.impl.operationutil.Operations.isJoinOperation;
 import static com.hazelcast.spi.properties.GroupProperty.OPERATION_CALL_TIMEOUT_MILLIS;
+import static com.hazelcast.util.CollectionUtil.toIntegerList;
 import static com.hazelcast.util.Preconditions.checkNotNegative;
 import static com.hazelcast.util.Preconditions.checkNotNull;
 import static java.util.Collections.newSetFromMap;
@@ -111,18 +114,21 @@ public final class OperationServiceImpl implements InternalOperationService, Met
     final AtomicLong completedOperationsCount = new AtomicLong();
 
     @Probe(name = "operationTimeoutCount", level = MANDATORY)
-    final MwCounter operationTimeoutCount = MwCounter.newMwCounter();
+    final MwCounter operationTimeoutCount = newMwCounter();
 
     @Probe(name = "callTimeoutCount", level = MANDATORY)
-    final MwCounter callTimeoutCount = MwCounter.newMwCounter();
+    final MwCounter callTimeoutCount = newMwCounter();
 
     @Probe(name = "retryCount", level = MANDATORY)
-    final MwCounter retryCount = MwCounter.newMwCounter();
+    final MwCounter retryCount = newMwCounter();
+
+    @Probe(name = "failedBackups", level = MANDATORY)
+    final Counter failedBackupsCount = newMwCounter();
 
     final NodeEngineImpl nodeEngine;
     final Node node;
     final ILogger logger;
-    final OperationBackupHandler operationBackupHandler;
+    final OperationBackupHandler backupHandler;
     final BackpressureRegulator backpressureRegulator;
     volatile Invocation.Context invocationContext;
 
@@ -161,7 +167,7 @@ public final class OperationServiceImpl implements InternalOperationService, Met
                 nodeEngine, thisAddress, node.getHazelcastThreadGroup(), node.getProperties(), invocationRegistry,
                 node.getLogger(InvocationMonitor.class), serializationService, nodeEngine.getServiceManager());
 
-        this.operationBackupHandler = new OperationBackupHandler(this);
+        this.backupHandler = new OperationBackupHandler(this);
 
         this.responseHandler = new ResponseHandler(
                 node.getLogger(ResponseHandler.class), node.getSerializationService(), invocationRegistry, nodeEngine);
@@ -339,10 +345,9 @@ public final class OperationServiceImpl implements InternalOperationService, Met
 
     @Override
     public boolean isCallTimedOut(Operation op) {
-        // Join operations should not be checked for timeout
-        // because caller is not member of this cluster
+        // Join operations should not be checked for timeout because caller is not member of this cluster
         // and can have a different clock.
-        if (!op.returnsResponse() || isJoinOperation(op)) {
+        if (isJoinOperation(op)) {
             return false;
         }
 
@@ -392,20 +397,7 @@ public final class OperationServiceImpl implements InternalOperationService, Met
     @Override
     public Map<Integer, Object> invokeOnPartitions(String serviceName, OperationFactory operationFactory, int[] partitions)
             throws Exception {
-        // todo: copy paste logic from the above code.
-        Map<Address, List<Integer>> memberPartitions = new HashMap<Address, List<Integer>>(3);
-        InternalPartitionService partitionService = nodeEngine.getPartitionService();
-        for (int partition : partitions) {
-            Address owner = partitionService.getPartitionOwnerOrWait(partition);
-
-            if (!memberPartitions.containsKey(owner)) {
-                memberPartitions.put(owner, new ArrayList<Integer>());
-            }
-
-            memberPartitions.get(owner).add(partition);
-        }
-        InvokeOnPartitions invokeOnPartitions = new InvokeOnPartitions(this, serviceName, operationFactory, memberPartitions);
-        return invokeOnPartitions.invoke();
+        return invokeOnPartitions(serviceName, operationFactory, toIntegerList(partitions));
     }
 
     @Override
@@ -459,9 +451,9 @@ public final class OperationServiceImpl implements InternalOperationService, Met
     }
 
     @Override
-    public void provideMetrics(MetricsRegistry metricsRegistry) {
-        metricsRegistry.scanAndRegister(this, "operation");
-        metricsRegistry.collectMetrics(invocationRegistry, invocationMonitor, responseHandler, asyncResponseHandler,
+    public void provideMetrics(MetricsRegistry registry) {
+        registry.scanAndRegister(this, "operation");
+        registry.collectMetrics(invocationRegistry, invocationMonitor, responseHandler, asyncResponseHandler,
                 operationExecutor);
     }
 

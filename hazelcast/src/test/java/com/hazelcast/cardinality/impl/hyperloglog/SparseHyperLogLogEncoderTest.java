@@ -18,13 +18,25 @@ package com.hazelcast.cardinality.impl.hyperloglog;
 
 import com.hazelcast.cardinality.impl.hyperloglog.impl.HyperLogLogEncoder;
 import com.hazelcast.cardinality.impl.hyperloglog.impl.SparseHyperLogLogEncoder;
+import com.hazelcast.test.HazelcastParallelClassRunner;
+import com.hazelcast.test.annotation.ParallelTest;
+import com.hazelcast.test.annotation.QuickTest;
+import org.junit.experimental.categories.Category;
+import org.junit.runner.RunWith;
 
-public class SparseHyperLogLogEncoderTest
-        extends HyperLogLogEncoderAbstractTest {
+@RunWith(HazelcastParallelClassRunner.class)
+@Category({QuickTest.class, ParallelTest.class})
+
+public class SparseHyperLogLogEncoderTest extends HyperLogLogEncoderAbstractTest {
+
+    @Override
+    public int precision() {
+        return 25;
+    }
 
     @Override
     public HyperLogLogEncoder createStore() {
-        return new SparseHyperLogLogEncoder(14, 25);
+        return new SparseHyperLogLogEncoder(14, precision());
     }
 
     @Override

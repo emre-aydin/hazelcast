@@ -43,6 +43,11 @@ public class EvictionConfig implements EvictionConfiguration, DataSerializable, 
     public static final int DEFAULT_MAX_ENTRY_COUNT = 10000;
 
     /**
+     * Default maximum entry count for Map on-heap Near Caches.
+     */
+    public static final int DEFAULT_MAX_ENTRY_COUNT_FOR_ON_HEAP_MAP = Integer.MAX_VALUE;
+
+    /**
      * Default Max-Size Policy.
      */
     public static final MaxSizePolicy DEFAULT_MAX_SIZE_POLICY = MaxSizePolicy.ENTRY_COUNT;
@@ -52,7 +57,6 @@ public class EvictionConfig implements EvictionConfiguration, DataSerializable, 
      */
     public static final EvictionPolicy DEFAULT_EVICTION_POLICY = EvictionPolicy.LRU;
 
-    protected boolean sizeConfigured;
     protected int size = DEFAULT_MAX_ENTRY_COUNT;
     protected MaxSizePolicy maxSizePolicy = DEFAULT_MAX_SIZE_POLICY;
     protected EvictionPolicy evictionPolicy = DEFAULT_EVICTION_POLICY;
@@ -60,6 +64,11 @@ public class EvictionConfig implements EvictionConfiguration, DataSerializable, 
     protected EvictionPolicyComparator comparator;
 
     protected EvictionConfig readOnly;
+
+    /**
+     * Used by the {@link NearCacheConfigAccessor} to initialize the proper default value for on-heap maps.
+     */
+    boolean sizeConfigured;
 
     public EvictionConfig() {
     }
@@ -226,6 +235,10 @@ public class EvictionConfig implements EvictionConfiguration, DataSerializable, 
             return EvictionPolicyType.LFU;
         } else if (evictionPolicy == EvictionPolicy.LRU) {
             return EvictionPolicyType.LRU;
+        } else if (evictionPolicy == EvictionPolicy.RANDOM) {
+            return EvictionPolicyType.RANDOM;
+        } else if (evictionPolicy == EvictionPolicy.NONE) {
+            return EvictionPolicyType.NONE;
         } else {
             return null;
         }
@@ -257,7 +270,6 @@ public class EvictionConfig implements EvictionConfiguration, DataSerializable, 
                 + ", evictionPolicy=" + evictionPolicy
                 + ", comparatorClassName=" + comparatorClassName
                 + ", comparator=" + comparator
-                + ", readOnly=" + readOnly
                 + '}';
     }
 }

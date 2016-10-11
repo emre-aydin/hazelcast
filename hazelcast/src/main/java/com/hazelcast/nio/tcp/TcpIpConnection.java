@@ -16,6 +16,9 @@
 
 package com.hazelcast.nio.tcp;
 
+import com.hazelcast.internal.metrics.DiscardableMetricsProvider;
+import com.hazelcast.internal.metrics.MetricsProvider;
+import com.hazelcast.internal.metrics.MetricsRegistry;
 import com.hazelcast.internal.metrics.Probe;
 import com.hazelcast.logging.ILogger;
 import com.hazelcast.nio.Address;
@@ -43,7 +46,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
  * @see IOThreadingModel
  */
 @SuppressWarnings("checkstyle:methodcount")
-public final class TcpIpConnection implements Connection {
+public final class TcpIpConnection implements Connection, MetricsProvider, DiscardableMetricsProvider {
 
     private final SocketChannelWrapper socketChannel;
 
@@ -72,13 +75,29 @@ public final class TcpIpConnection implements Connection {
     public TcpIpConnection(TcpIpConnectionManager connectionManager,
                            int connectionId,
                            SocketChannelWrapper socketChannel,
-                           IOThreadingModel ioThreadingModel) {
+                           IOThreadingModel<TcpIpConnection, SocketReader, SocketWriter> ioThreadingModel) {
         this.connectionId = connectionId;
         this.logger = connectionManager.getIoService().getLogger(TcpIpConnection.class.getName());
         this.connectionManager = connectionManager;
         this.socketChannel = socketChannel;
         this.socketWriter = ioThreadingModel.newSocketWriter(this);
         this.socketReader = ioThreadingModel.newSocketReader(this);
+    }
+
+    @Override
+    public void provideMetrics(MetricsRegistry registry) {
+        Socket socket = socketChannel.socket();
+        SocketAddress localSocketAddress = socket != null ? socket.getLocalSocketAddress() : null;
+        SocketAddress remoteSocketAddress = socket != null ? socket.getRemoteSocketAddress() : null;
+        String metricsId = localSocketAddress + "->" + remoteSocketAddress;
+        registry.scanAndRegister(socketWriter, "tcp.connection[" + metricsId + "].out");
+        registry.scanAndRegister(socketReader, "tcp.connection[" + metricsId + "].in");
+    }
+
+    @Override
+    public void discardMetrics(MetricsRegistry registry) {
+        registry.deregister(socketReader);
+        registry.deregister(socketWriter);
     }
 
     public SocketReader getSocketReader() {
@@ -166,13 +185,6 @@ public final class TcpIpConnection implements Connection {
         return connectionId;
     }
 
-    public Object getMetricsId() {
-        Socket socket = socketChannel.socket();
-        SocketAddress localSocketAddress = socket != null ? socket.getLocalSocketAddress() : null;
-        SocketAddress remoteSocketAddress = socket != null ? socket.getRemoteSocketAddress() : null;
-        return localSocketAddress + "->" + remoteSocketAddress;
-    }
-
     public void setSendBufferSize(int size) throws SocketException {
         socketChannel.socket().setSendBufferSize(size);
     }
@@ -183,7 +195,7 @@ public final class TcpIpConnection implements Connection {
 
     @Override
     public boolean isClient() {
-        final ConnectionType t = type;
+        ConnectionType t = type;
         return (t != null) && t != ConnectionType.NONE && t.isClient();
     }
 

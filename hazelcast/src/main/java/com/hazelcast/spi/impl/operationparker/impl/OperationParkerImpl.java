@@ -20,6 +20,7 @@ import com.hazelcast.core.HazelcastInstanceNotActiveException;
 import com.hazelcast.instance.HazelcastThreadGroup;
 import com.hazelcast.instance.MemberImpl;
 import com.hazelcast.instance.Node;
+import com.hazelcast.internal.metrics.Probe;
 import com.hazelcast.internal.partition.MigrationInfo;
 import com.hazelcast.logging.ILogger;
 import com.hazelcast.nio.Address;
@@ -82,13 +83,16 @@ public class OperationParkerImpl implements OperationParker, LiveOperationsTrack
                         threadGroup.getThreadNamePrefix("operation-parker")));
 
         expirationTask = expirationService.submit(new ExpirationTask());
+        nodeEngine.getMetricsRegistry().scanAndRegister(this, "operation-parker");
     }
 
     @Override
     public void populate(LiveOperations liveOperations) {
         for (Queue<ParkedOperation> parkQueue : parkQueueMap.values()) {
-            for (ParkedOperation op : parkQueue) {
-                liveOperations.add(op.getCallerAddress(), op.getCallId());
+            for (ParkedOperation parkedOperation : parkQueue) {
+                // we need to read out the data from the BlockedOperation; not from the ParkerOperation-container.
+                Operation operation = parkedOperation.getOperation();
+                liveOperations.add(operation.getCallerAddress(), operation.getCallId());
             }
         }
     }
@@ -156,12 +160,12 @@ public class OperationParkerImpl implements OperationParker, LiveOperationsTrack
         }
     }
 
-    // for testing purposes only
+    @Probe
     public int getParkQueueCount() {
         return parkQueueMap.size();
     }
 
-    // for testing purposes only
+    @Probe
     public int getTotalParkedOperationCount() {
         int count = 0;
         for (Queue<ParkedOperation> parkQueue : parkQueueMap.values()) {
