@@ -88,6 +88,9 @@ public class RingbufferConfig {
         this.asyncBackupCount = config.asyncBackupCount;
         this.timeToLiveSeconds = config.timeToLiveSeconds;
         this.inMemoryFormat = config.inMemoryFormat;
+        this.ringbufferStoreConfig = config.ringbufferStoreConfig == null
+                ? null
+                : new RingbufferStoreConfig(config.ringbufferStoreConfig);
     }
 
     /**
@@ -280,6 +283,7 @@ public class RingbufferConfig {
                 + ", asyncBackupCount=" + asyncBackupCount
                 + ", timeToLiveSeconds=" + timeToLiveSeconds
                 + ", inMemoryFormat=" + inMemoryFormat
+                + ", ringbufferStoreConfig=" + ringbufferStoreConfig
                 + '}';
     }
 
