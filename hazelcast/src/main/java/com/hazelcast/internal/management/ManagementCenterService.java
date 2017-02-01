@@ -379,7 +379,8 @@ public class ManagementCenterService {
                         StringBuilder builder = new StringBuilder();
                         if (s.startsWith("c:")) {
                             String mapName = s.substring(2);
-                            builder.append("map.").append(mapName).append(".ownedEntryCount")
+                            builder.append("map.ownedEntryCount")
+                                    .append(",mapName=").append(mapName)
                                     .append(",clusterName=").append(clusterName)
                                     .append(",memberUuid=").append(instance.getLocalEndpoint().getUuid())
                                     .append(" value=")
