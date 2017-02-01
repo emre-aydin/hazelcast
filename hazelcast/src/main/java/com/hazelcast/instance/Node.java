@@ -175,7 +175,7 @@ public class Node {
 
         String policy = properties.getString(SHUTDOWNHOOK_POLICY);
         this.shutdownHookThread = new NodeShutdownHookThread("hz.ShutdownThread", policy);
-        this.buildInfo = getBuildInfo();
+        this.buildInfo = BuildInfoProvider.getBuildInfo();
         this.version = MemberVersion.of(buildInfo.getVersion());
 
         String loggingType = properties.getString(LOGGING_TYPE);
@@ -455,7 +455,7 @@ public class Node {
         public void run() {
             try {
                 while (isRunning()) {
-                    monitoringService.update(factory.createTimedMemberState());
+                    monitoringService.update(factory.createTimedMemberState(), hazelcastInstance);
                     sleep();
                 }
             } catch (Exception exception) {
