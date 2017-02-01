@@ -57,6 +57,8 @@ import com.hazelcast.spi.OperationService;
 import com.hazelcast.util.Clock;
 import com.hazelcast.util.ExceptionUtil;
 
+import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
@@ -66,6 +68,7 @@ import java.net.HttpURLConnection;
 import java.net.MalformedURLException;
 import java.net.URL;
 import java.net.URLConnection;
+import java.nio.charset.Charset;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.Map;
@@ -297,6 +300,9 @@ public class ManagementCenterService {
         public void run() {
             try {
                 while (isRunning()) {
+
+
+
                     timedMemberState.set(timedMemberStateFactory.createTimedMemberState());
                     sleep();
                 }
@@ -360,25 +366,36 @@ public class ManagementCenterService {
             OutputStream outputStream = null;
             OutputStreamWriter writer = null;
             try {
-                HttpURLConnection connection = openConnection(url);
-                outputStream = connection.getOutputStream();
-                writer = new OutputStreamWriter(outputStream, "UTF-8");
-
-                JsonObject root = new JsonObject();
-                root.add("identifier", identifier.toJson());
                 TimedMemberState memberState = timedMemberState.get();
                 if (memberState != null) {
-                    root.add("timedMemberState", memberState.toJson());
-                    root.writeTo(writer);
+//                    String command = "mymeas,mytag=1 value=170";
 
-                    writer.flush();
-                    outputStream.flush();
-                    boolean success = post(connection);
-                    if (manCenterConnectionLost && success) {
-                        logger.info("Connection to management center restored.");
-                        manCenterConnectionLost = false;
-                    } else if (!success) {
-                        manCenterConnectionLost = true;
+                    String clusterName = memberState.getClusterName();
+                    for (String s : memberState.getInstanceNames()) {
+                        HttpURLConnection connection = openConnection(url);
+                        outputStream = connection.getOutputStream();
+                        writer = new OutputStreamWriter(outputStream, "UTF-8");
+
+                        StringBuilder builder = new StringBuilder();
+                        if (s.startsWith("c:")) {
+                            String mapName = s.substring(2);
+                            builder.append("map.").append(mapName).append(".ownedEntryCount")
+                                    .append(",clusterName=").append(clusterName)
+                                    .append(",memberUuid=").append(instance.getLocalEndpoint().getUuid())
+                                    .append(" value=")
+                                    .append(memberState.getMemberState().getLocalMapStats(mapName).getOwnedEntryCount());
+                            writer.write(builder.toString());
+                        }
+                        writer.flush();
+                        outputStream.flush();
+
+                        boolean success = post(connection);
+                        if (manCenterConnectionLost && success) {
+                            logger.info("Connection to management center restored.");
+                            manCenterConnectionLost = false;
+                        } else if (!success) {
+                            manCenterConnectionLost = true;
+                        }
                     }
                 }
             } catch (Exception e) {
@@ -408,7 +425,7 @@ public class ManagementCenterService {
         }
 
         private URL newCollectorUrl() throws MalformedURLException {
-            String url = cleanupUrl(managementCenterUrl) + "collector.do";
+            String url = "http://localhost:8086/write?db=mancenter";
             return new URL(url);
         }
     }
