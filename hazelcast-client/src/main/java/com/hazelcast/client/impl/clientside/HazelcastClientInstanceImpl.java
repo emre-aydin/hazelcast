@@ -39,6 +39,7 @@ import com.hazelcast.client.impl.protocol.ClientMessage;
 import com.hazelcast.client.impl.protocol.codec.ClientGetDistributedObjectsCodec;
 import com.hazelcast.client.impl.querycache.ClientQueryCacheContext;
 import com.hazelcast.client.impl.statistics.Statistics;
+import com.hazelcast.client.management.internal.ManagementCenterService;
 import com.hazelcast.client.proxy.ClientClusterProxy;
 import com.hazelcast.client.proxy.PartitionServiceProxy;
 import com.hazelcast.client.spi.ClientClusterService;
@@ -202,6 +203,7 @@ public class HazelcastClientInstanceImpl implements HazelcastInstance, Serializa
     private final ClientDiscoveryService clientDiscoveryService;
     private final ClientProxySessionManager proxySessionManager;
     private final CPSubsystemImpl cpSubsystem;
+    private final ManagementCenterService managementCenterService;
 
     public HazelcastClientInstanceImpl(ClientConfig clientConfig,
                                        ClientFailoverConfig clientFailoverConfig,
@@ -257,6 +259,7 @@ public class HazelcastClientInstanceImpl implements HazelcastInstance, Serializa
         userCodeDeploymentService = new ClientUserCodeDeploymentService(config.getUserCodeDeploymentConfig(), classLoader);
         proxySessionManager = new ClientProxySessionManager(this);
         cpSubsystem = new CPSubsystemImpl(this);
+        managementCenterService = new ManagementCenterService(this, serializationService);
     }
 
     private ClusterConnectorService initClusterConnectorService() {
@@ -835,5 +838,9 @@ public class HazelcastClientInstanceImpl implements HazelcastInstance, Serializa
 
     public ClientQueryCacheContext getQueryCacheContext() {
         return queryCacheContext;
+    }
+
+    public ManagementCenterService getManagementCenterService() {
+        return managementCenterService;
     }
 }
