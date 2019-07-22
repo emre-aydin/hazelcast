@@ -112,7 +112,7 @@ import com.hazelcast.cp.internal.session.client.GenerateThreadIdMessageTask;
 import com.hazelcast.cp.internal.session.client.HeartbeatSessionMessageTask;
 import com.hazelcast.flakeidgen.impl.client.NewIdBatchMessageTask;
 import com.hazelcast.instance.impl.Node;
-import com.hazelcast.internal.management.ChangeWanStateMessageTask;
+import com.hazelcast.internal.management.ExecuteOperationJSONMessageTask;
 import com.hazelcast.internal.management.ReadTimedMemberStateMessageTask;
 import com.hazelcast.nio.Connection;
 import com.hazelcast.spi.NodeEngine;
@@ -2347,18 +2347,23 @@ public class DefaultMessageTaskFactoryProvider implements MessageTaskFactoryProv
         };
 
         //region ----------  REGISTRATION FOR MC
-        factories[com.hazelcast.client.impl.protocol.codec.MCChangeWanStateCodec.RequestParameters.TYPE.id()] = new MessageTaskFactory() {
-            public MessageTask create(ClientMessage clientMessage, Connection connection) {
-                return new ChangeWanStateMessageTask(clientMessage, node, connection);
-            }
-        };
         factories[com.hazelcast.client.impl.protocol.codec.MCReadTimedMemberStateCodec.RequestParameters.TYPE.id()] = new MessageTaskFactory() {
             @Override
             public MessageTask create(ClientMessage clientMessage, Connection connection) {
                 return new ReadTimedMemberStateMessageTask(clientMessage, node, connection);
             }
         };
-//endregion
+        factories[com.hazelcast.client.impl.protocol.codec.MCExecuteOperationJSONCodec.RequestParameters.TYPE.id()] = new MessageTaskFactory() {
+            public MessageTask create(ClientMessage clientMessage, Connection connection) {
+                return new ExecuteOperationJSONMessageTask(clientMessage, node, connection);
+            }
+        };
+        factories[com.hazelcast.client.impl.protocol.codec.MCExecuteOperationProtobufCodec.RequestParameters.TYPE.id()] = new MessageTaskFactory() {
+            public MessageTask create(ClientMessage clientMessage, Connection connection) {
+                return new ExecuteOperationJSONMessageTask(clientMessage, node, connection);
+            }
+        };
+        //endregion
 
     }
 
