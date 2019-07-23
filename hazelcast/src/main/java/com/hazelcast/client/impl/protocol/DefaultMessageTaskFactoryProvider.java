@@ -2353,12 +2353,7 @@ public class DefaultMessageTaskFactoryProvider implements MessageTaskFactoryProv
                 return new ReadTimedMemberStateMessageTask(clientMessage, node, connection);
             }
         };
-        factories[com.hazelcast.client.impl.protocol.codec.MCExecuteOperationJSONCodec.RequestParameters.TYPE.id()] = new MessageTaskFactory() {
-            public MessageTask create(ClientMessage clientMessage, Connection connection) {
-                return new ExecuteOperationJSONMessageTask(clientMessage, node, connection);
-            }
-        };
-        factories[com.hazelcast.client.impl.protocol.codec.MCExecuteOperationProtobufCodec.RequestParameters.TYPE.id()] = new MessageTaskFactory() {
+        factories[com.hazelcast.client.impl.protocol.codec.MCExecuteOperationCodec.RequestParameters.TYPE.id()] = new MessageTaskFactory() {
             public MessageTask create(ClientMessage clientMessage, Connection connection) {
                 return new ExecuteOperationJSONMessageTask(clientMessage, node, connection);
             }

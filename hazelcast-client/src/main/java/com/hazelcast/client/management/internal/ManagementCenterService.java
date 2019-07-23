@@ -17,7 +17,7 @@
 package com.hazelcast.client.management.internal;
 
 import com.hazelcast.client.impl.clientside.HazelcastClientInstanceImpl;
-import com.hazelcast.client.impl.protocol.codec.MCExecuteOperationJSONCodec;
+import com.hazelcast.client.impl.protocol.codec.MCExecuteOperationCodec;
 import com.hazelcast.client.impl.protocol.codec.MCReadTimedMemberStateCodec;
 import com.hazelcast.client.spi.impl.ClientInvocation;
 import com.hazelcast.client.util.ClientDelegatingFuture;
@@ -57,7 +57,7 @@ public class ManagementCenterService {
     public ClientDelegatingFuture<Object> executeOperationJson(String data, Address address) {
         ClientInvocation invocation = new ClientInvocation(
                 client,
-                MCExecuteOperationJSONCodec.encodeRequest(data),
+                MCExecuteOperationCodec.encodeRequest(data),
                 null,
                 address
         );
@@ -65,8 +65,8 @@ public class ManagementCenterService {
                 invocation.invoke(),
                 serializationService,
                 clientMessage -> {
-                    MCExecuteOperationJSONCodec.ResponseParameters responseParameters =
-                            MCExecuteOperationJSONCodec.decodeResponse(clientMessage);
+                    MCExecuteOperationCodec.ResponseParameters responseParameters =
+                            MCExecuteOperationCodec.decodeResponse(clientMessage);
                     return responseParameters.response;
                 }
         );

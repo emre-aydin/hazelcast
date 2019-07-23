@@ -1,7 +1,7 @@
 package com.hazelcast.internal.management;
 
 import com.hazelcast.client.impl.protocol.ClientMessage;
-import com.hazelcast.client.impl.protocol.codec.MCExecuteOperationJSONCodec;
+import com.hazelcast.client.impl.protocol.codec.MCExecuteOperationCodec;
 import com.hazelcast.client.impl.protocol.task.AbstractMessageTask;
 import com.hazelcast.core.ExecutionCallback;
 import com.hazelcast.instance.impl.Node;
@@ -23,7 +23,7 @@ import static com.hazelcast.internal.management.request.ConsoleRequestConstants.
 import static com.hazelcast.internal.management.request.ConsoleRequestConstants.REQUEST_TYPE_WAN_PUBLISHER;
 
 public class ExecuteOperationJSONMessageTask
-        extends AbstractMessageTask<MCExecuteOperationJSONCodec.RequestParameters>
+        extends AbstractMessageTask<MCExecuteOperationCodec.RequestParameters>
         implements ExecutionCallback<MCResponse> {
 
     public ExecuteOperationJSONMessageTask(ClientMessage clientMessage, Node node, Connection connection) {
@@ -31,13 +31,13 @@ public class ExecuteOperationJSONMessageTask
     }
 
     @Override
-    protected MCExecuteOperationJSONCodec.RequestParameters decodeClientMessage(ClientMessage clientMessage) {
-        return MCExecuteOperationJSONCodec.decodeRequest(clientMessage);
+    protected MCExecuteOperationCodec.RequestParameters decodeClientMessage(ClientMessage clientMessage) {
+        return MCExecuteOperationCodec.decodeRequest(clientMessage);
     }
 
     @Override
     protected ClientMessage encodeResponse(Object response) {
-        return MCExecuteOperationJSONCodec.encodeResponse((String) response);
+        return MCExecuteOperationCodec.encodeResponse((String) response);
     }
 
     @Override
