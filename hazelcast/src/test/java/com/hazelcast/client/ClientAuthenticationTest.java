@@ -38,7 +38,8 @@ import org.junit.experimental.categories.Category;
 import org.junit.rules.ExpectedException;
 import org.junit.runner.RunWith;
 
-import static com.hazelcast.client.impl.management.ManagementCenterService.MC_CLIENT_MODE_PROP;
+import static com.hazelcast.client.impl.connection.nio.ClientConnectionManagerImpl.MC_CLIENT_MODE_PROP;
+
 
 @RunWith(HazelcastParallelClassRunner.class)
 @Category({QuickTest.class, ParallelJVMTest.class})

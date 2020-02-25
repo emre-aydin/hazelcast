@@ -69,6 +69,7 @@ import com.hazelcast.security.PasswordCredentials;
 import com.hazelcast.security.TokenCredentials;
 import com.hazelcast.spi.exception.TargetDisconnectedException;
 import com.hazelcast.spi.properties.HazelcastProperties;
+import com.hazelcast.spi.properties.HazelcastProperty;
 
 import javax.annotation.Nonnull;
 import java.io.EOFException;
@@ -97,7 +98,6 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import static com.hazelcast.client.config.ClientConnectionStrategyConfig.ReconnectMode.OFF;
-import static com.hazelcast.client.impl.management.ManagementCenterService.MC_CLIENT_MODE_PROP;
 import static com.hazelcast.client.impl.protocol.AuthenticationStatus.NOT_ALLOWED_IN_CLUSTER;
 import static com.hazelcast.client.properties.ClientProperty.IO_BALANCER_INTERVAL_SECONDS;
 import static com.hazelcast.client.properties.ClientProperty.IO_INPUT_THREAD_COUNT;
@@ -155,6 +155,12 @@ public class ClientConnectionManagerImpl implements ClientConnectionManager {
     private volatile UUID clusterId;
     private volatile ClientState clientState = ClientState.INITIAL;
     private volatile boolean connectToClusterTaskSubmitted;
+
+    /**
+     * Internal property for enabling MC client mode ({@link ConnectionType#MC_JAVA_CLIENT}).
+     */
+    public static final HazelcastProperty MC_CLIENT_MODE_PROP
+            = new HazelcastProperty("hazelcast.client.internal.mc.mode", false);
 
     private enum ClientState {
         /**

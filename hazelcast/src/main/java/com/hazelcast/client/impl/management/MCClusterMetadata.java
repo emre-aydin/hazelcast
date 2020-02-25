@@ -25,7 +25,7 @@ public class MCClusterMetadata {
     private String memberVersion;
     private String jetVersion;
 
-    static MCClusterMetadata fromResponse(ResponseParameters parameters) {
+    public static MCClusterMetadata fromResponse(ResponseParameters parameters) {
         MCClusterMetadata metadata = new MCClusterMetadata();
         metadata.currentState = ClusterState.getById(parameters.currentState);
         metadata.clusterTime = parameters.clusterTime;
