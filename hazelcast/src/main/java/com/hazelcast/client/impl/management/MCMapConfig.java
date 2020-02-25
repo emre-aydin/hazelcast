@@ -16,7 +16,6 @@
 
 package com.hazelcast.client.impl.management;
 
-import com.hazelcast.client.impl.protocol.codec.MCGetMapConfigCodec.ResponseParameters;
 import com.hazelcast.config.EvictionPolicy;
 import com.hazelcast.config.InMemoryFormat;
 import com.hazelcast.config.MaxSizePolicy;
@@ -32,21 +31,6 @@ public class MCMapConfig {
     private MaxSizePolicy maxSizePolicy;
     private EvictionPolicy evictionPolicy;
     private InMemoryFormat inMemoryFormat;
-
-    public static MCMapConfig fromResponse(ResponseParameters params) {
-        MCMapConfig config = new MCMapConfig();
-        config.inMemoryFormat = InMemoryFormat.getById(params.inMemoryFormat);
-        config.backupCount = params.backupCount;
-        config.asyncBackupCount = params.asyncBackupCount;
-        config.timeToLiveSeconds = params.timeToLiveSeconds;
-        config.maxIdleSeconds = params.maxIdleSeconds;
-        config.maxSize = params.maxSize;
-        config.maxSizePolicy = MaxSizePolicy.getById(params.maxSizePolicy);
-        config.readBackupData = params.readBackupData;
-        config.evictionPolicy = EvictionPolicy.getById(params.evictionPolicy);
-        config.mergePolicy = params.mergePolicy;
-        return config;
-    }
 
     public InMemoryFormat getInMemoryFormat() {
         return inMemoryFormat;
@@ -86,5 +70,45 @@ public class MCMapConfig {
 
     public String getMergePolicy() {
         return mergePolicy;
+    }
+
+    public void setReadBackupData(boolean readBackupData) {
+        this.readBackupData = readBackupData;
+    }
+
+    public void setMaxSize(int maxSize) {
+        this.maxSize = maxSize;
+    }
+
+    public void setBackupCount(int backupCount) {
+        this.backupCount = backupCount;
+    }
+
+    public void setMaxIdleSeconds(int maxIdleSeconds) {
+        this.maxIdleSeconds = maxIdleSeconds;
+    }
+
+    public void setAsyncBackupCount(int asyncBackupCount) {
+        this.asyncBackupCount = asyncBackupCount;
+    }
+
+    public void setTimeToLiveSeconds(int timeToLiveSeconds) {
+        this.timeToLiveSeconds = timeToLiveSeconds;
+    }
+
+    public void setMergePolicy(String mergePolicy) {
+        this.mergePolicy = mergePolicy;
+    }
+
+    public void setMaxSizePolicy(MaxSizePolicy maxSizePolicy) {
+        this.maxSizePolicy = maxSizePolicy;
+    }
+
+    public void setEvictionPolicy(EvictionPolicy evictionPolicy) {
+        this.evictionPolicy = evictionPolicy;
+    }
+
+    public void setInMemoryFormat(InMemoryFormat inMemoryFormat) {
+        this.inMemoryFormat = inMemoryFormat;
     }
 }
