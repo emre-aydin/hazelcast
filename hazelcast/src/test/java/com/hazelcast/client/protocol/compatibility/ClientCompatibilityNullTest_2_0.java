@@ -6912,6 +6912,22 @@ public class ClientCompatibilityNullTest_2_0 {
         MCInterruptHotRestartBackupCodec.ResponseParameters parameters = MCInterruptHotRestartBackupCodec.decodeResponse(fromFile);
     }
 
+    @Test
+    public void test_MCGetDataStructuresCodec_encodeRequest() {
+        int fileClientMessageIndex = 823;
+        ClientMessage encoded = MCGetDataStructuresCodec.encodeRequest();
+        ClientMessage fromFile = clientMessages.get(fileClientMessageIndex);
+        compareClientMessages(fromFile, encoded);
+    }
+
+    @Test
+    public void test_MCGetDataStructuresCodec_decodeResponse() {
+        int fileClientMessageIndex = 824;
+        ClientMessage fromFile = clientMessages.get(fileClientMessageIndex);
+        MCGetDataStructuresCodec.ResponseParameters parameters = MCGetDataStructuresCodec.decodeResponse(fromFile);
+        assertTrue(isEqual(aListOfDataStructures, parameters.dataStructures));
+    }
+
     private void compareClientMessages(ClientMessage binaryMessage, ClientMessage encodedMessage) {
         ClientMessage.Frame binaryFrame, encodedFrame;
 

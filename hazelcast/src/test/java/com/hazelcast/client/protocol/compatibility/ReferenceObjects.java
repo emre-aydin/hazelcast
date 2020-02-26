@@ -47,6 +47,7 @@ import com.hazelcast.config.WanReplicationRef;
 import com.hazelcast.cp.internal.RaftGroupId;
 import com.hazelcast.internal.cluster.MemberInfo;
 import com.hazelcast.internal.management.dto.ClientBwListEntryDTO;
+import com.hazelcast.internal.management.dto.DataStructure;
 import com.hazelcast.internal.management.dto.MCEventDTO;
 import com.hazelcast.internal.serialization.Data;
 import com.hazelcast.internal.serialization.impl.HeapData;
@@ -657,6 +658,8 @@ public class ReferenceObjects {
     public static DefaultQueryCacheEventData aQueryCacheEventData;
     public static MCEventDTO aMCEvent = new MCEventDTO(aLong, anInt, aString);
     public static List<MCEventDTO> aListOfMCEvents = Collections.singletonList(aMCEvent);
+    public static DataStructure aDataStructure = new DataStructure(aString, anInt);
+    public static List<DataStructure> aListOfDataStructures = Collections.singletonList(aDataStructure);
 
     static {
         aQueryCacheEventData = new DefaultQueryCacheEventData();

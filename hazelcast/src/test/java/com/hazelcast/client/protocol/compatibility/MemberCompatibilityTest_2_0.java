@@ -7417,6 +7417,21 @@ public class MemberCompatibilityTest_2_0 {
         compareClientMessages(fromFile, encoded);
     }
 
+    @Test
+    public void test_MCGetDataStructuresCodec_decodeRequest() {
+        int fileClientMessageIndex = 823;
+        ClientMessage fromFile = clientMessages.get(fileClientMessageIndex);
+        MCGetDataStructuresCodec.RequestParameters parameters = MCGetDataStructuresCodec.decodeRequest(fromFile);
+    }
+
+    @Test
+    public void test_MCGetDataStructuresCodec_encodeResponse() {
+        int fileClientMessageIndex = 824;
+        ClientMessage encoded = MCGetDataStructuresCodec.encodeResponse(aListOfDataStructures);
+        ClientMessage fromFile = clientMessages.get(fileClientMessageIndex);
+        compareClientMessages(fromFile, encoded);
+    }
+
      private void compareClientMessages(ClientMessage binaryMessage, ClientMessage encodedMessage) {
         ClientMessage.Frame binaryFrame, encodedFrame;
 
